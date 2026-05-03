@@ -1,0 +1,32 @@
+# Build and Generated Files
+report.pdf
+*.aux
+*.log
+
+# Submission directories (archive before uploading)
+submission/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node modules
+node_modules/
+package-lock.json

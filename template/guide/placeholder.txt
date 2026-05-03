@@ -1,0 +1,2 @@
+# Placeholder - Add lab assignment and reference materials here
+# https://www.docling.ai/ is a great resource for processing the lab assignment into markdown

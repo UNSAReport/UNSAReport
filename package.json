@@ -1,0 +1,45 @@
+{
+  "name": "@christianmz565/lab-report-template",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "EPIS Lab Report Template - A standardized typst based report template for UNSA engineering lab work",
+  "scripts": {
+    "install": "node scripts/install.js",
+    "update": "node scripts/update.js",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write ."
+  },
+  "keywords": [
+    "typst",
+    "report",
+    "template",
+    "lab",
+    "unsa",
+    "academic"
+  ],
+  "author": "christianmz565",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/christianmz565/report-template"
+  },
+  "files": [
+    "template/",
+    "scripts/",
+    "README.md",
+    "LICENSE",
+    "package.json",
+    "!**/*.log",
+    "!**/*.pdf"
+  ],
+  "bin": {
+    "lab-report-install": "scripts/install.js",
+    "lab-report-update": "scripts/update.js"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.14"
+  },
+  "dependencies": {
+    "node-pty": "^1.1.0"
+  }
+}

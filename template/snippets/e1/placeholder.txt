@@ -1,0 +1,3 @@
+# Placeholder - Add your Exercise 1 snippets here
+
+This directory contains code snippets from Exercise 1 that are referenced in the report.
