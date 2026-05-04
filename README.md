@@ -17,27 +17,34 @@ native tooling if you prefer Nix.
 
 ## Install
 
-Install the workspace dependencies first:
+Install the template into a project directory with a one-off command:
 
 ```bash
-npm install
+npx @christianmz565/lab-report install --dest /path/to/lab-project
 ```
 
-Then install the template into a project directory:
+You can also use pnpm:
 
 ```bash
-npx lab-report-install --dest /path/to/lab-project
+pnpx @christianmz565/lab-report install --dest /path/to/lab-project
 ```
 
 The installer copies the editable template files and assets into the target
 directory without overwriting files that already exist.
+
+If you are working on this package itself, install dependencies locally with
+`npm install` and use `node scripts/install.js` for manual testing.
 
 ## Update
 
 If the published template changes later, update an existing project with:
 
 ```bash
-npx lab-report-update --dest /path/to/lab-project
+npx @christianmz565/lab-report update --dest /path/to/lab-project
+```
+
+```bash
+pnpx @christianmz565/lab-report update --dest /path/to/lab-project
 ```
 
 Use `--force` to apply all tracked file updates without prompting.

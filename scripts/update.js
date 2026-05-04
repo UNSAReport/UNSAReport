@@ -64,7 +64,7 @@ async function run() {
   let sourceDir;
   try {
     sourceDir = join(
-      dirname(require.resolve("@epis/lab-report-template/package.json")),
+      dirname(require.resolve("@christianmz565/lab-report-template/package.json")),
       "template",
     );
   } catch (_e) {

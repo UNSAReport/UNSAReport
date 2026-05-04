@@ -64,7 +64,7 @@ async function run() {
   let sourceDir;
   try {
     const moduleDir = dirname(
-      require.resolve("@epis/lab-report-template/package.json"),
+      require.resolve("@christianmz565/lab-report-template/package.json"),
     );
     sourceDir = join(moduleDir, "template");
   } catch (_e) {

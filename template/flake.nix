@@ -1,5 +1,5 @@
 {
-  description = "A flake woof";
+  description = "A flake";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -27,7 +27,6 @@
             lib.makeLibraryPath [
               stdenv.cc.cc
               zlib
-              cowsay
               glib
               libxcb
               libglvnd
