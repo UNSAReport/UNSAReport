@@ -10,7 +10,7 @@ report, capture terminal output when needed, and bundle the submission.
 - `typst` on `PATH`.
 - A working `zip` command on Linux and macOS, or PowerShell on Windows for the
 	submission archive step.
-- `freeze` and ImageMagick's `magick` command if you want terminal captures.
+- `charmbracelet/freeze` and ImageMagick's `magick` command if you want terminal captures.
 
 The bundled `flake.nix` provides a ready-made environment with the template's
 native tooling if you prefer Nix.
@@ -41,10 +41,3 @@ npx lab-report-update --dest /path/to/lab-project
 ```
 
 Use `--force` to apply all tracked file updates without prompting.
-
-## Packaging Notes
-
-The published package includes the template files under `template/` and the
-installer/updater scripts under `scripts/`. Projects created from the template
-should be treated as the working copy; the package itself is only the source
-distribution.
