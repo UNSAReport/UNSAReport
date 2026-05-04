@@ -19,7 +19,7 @@ function printHelp() {
 Lab Report Template CLI
 
 Usage:
-  lab-report-template <command> [options]
+  lab-report <command> [options]
 
 Commands:
   install   Install the template files into a destination
@@ -28,8 +28,8 @@ Commands:
 Run with "--help" after a command for its options.
 
 Examples:
-  lab-report-template install --dest ~/projects/lab-01
-  lab-report-template update --force
+  lab-report install --dest ~/projects/lab-01
+  lab-report update --force
 `);
 }
 

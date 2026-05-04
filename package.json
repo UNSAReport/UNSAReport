@@ -1,6 +1,6 @@
 {
   "name": "@christianmz565/lab-report",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "type": "module",
   "description": "EPIS Lab Report Template - A standardized typst based report template for UNSA engineering lab work",
   "scripts": {
