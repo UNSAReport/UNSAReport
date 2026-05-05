@@ -20,9 +20,9 @@
 #define("lab_number", "01")
 #define("instructor_name", "Nombre del Docente")
 #define("members", (
-  "Apellidos Apellidos, Nombres Nombres",
-  "Apellidos Apellidos, Nombres Nombres",
-  "Apellidos Apellidos, Nombres Nombres",
+  "Apellidos Apellidos Nombres Nombres",
+  "Apellidos Apellidos Nombres Nombres",
+  "Apellidos Apellidos Nombres Nombres",
 ))
 
 #context {

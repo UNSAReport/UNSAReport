@@ -16,7 +16,7 @@
 #let tb-header-bg-color = rgb("#C8310E")
 #let code-bg-color = rgb("#F1F3F4")
 
-#let extract-named-snippet(source, file, snippet-name, prefix: "#") = {
+#let extract-named-snippet(source, file, snippet-name, prefix) = {
   let lines = source.split("\n")
   let start-marker = prefix + " START-SNIPPET," + snippet-name
   let end-marker = prefix + " END-SNIPPET"
@@ -52,7 +52,7 @@
   fields: (
     e.field("file", str, required: true),
     e.field("snippet", e.types.option(str), default: none),
-    e.field("prefix", str, default: "#"),
+    e.field("prefix", str, default: "//"),
     e.field("lang", str, default: "text"),
     e.field("fill", e.types.option(e.types.paint), default: code-bg-color),
     e.field("breakable", bool, default: true),

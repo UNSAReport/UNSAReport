@@ -41,7 +41,8 @@
               tinymist
               charm-freeze
               imagemagick
-              p7zip
+              zip
+              nodejs
             ]
             ++ fonts;
           buildInputs = [ pkgs.bashInteractive ];
