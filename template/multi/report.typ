@@ -1,4 +1,4 @@
-#import "lib.typ": (
+#import "../lib.typ": (
   abbreviate-by-caps, code-block, get-var, header-border-color, lab-report, lab-section, summarize-name,
   table-border-width,
 )
@@ -21,6 +21,8 @@
 #define("instructor_name", "Nombre del Docente")
 #define("members", (
   "Apellidos Apellidos Nombres Nombres",
+  "Apellidos Apellidos Nombres Nombres",
+  "Apellidos Apellidos Nombres Nombres",
 ))
 
 #context {
@@ -42,6 +44,9 @@
 
     = Ejercicio 1
 
+    #lorem(3)
+
+    #code-block("src/e1/placeholder.txt")
   ]
 
   #v(0.5em)
@@ -66,6 +71,6 @@
 
   #lab-section("REFERENCIAS")[
     #show heading: set text(weight: "bold")
-    #bibliography("bibliography.bib", style: "ieee")
+    #bibliography("../bibliography.bib", style: "ieee")
   ]
 ]

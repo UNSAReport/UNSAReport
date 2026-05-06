@@ -4,7 +4,9 @@
   "type": "module",
   "description": "EPIS Lab Report Template - A standardized typst based report template for UNSA engineering lab work",
   "scripts": {
-    "update": "node scripts/update.js",
+    "build": "node scripts/build-template.js",
+    "prepack": "npm run build",
+    "update": "node src/cli/update.js",
     "lint": "biome check .",
     "lint:fix": "biome check --write ."
   },
@@ -24,6 +26,7 @@
   },
   "files": [
     "template/",
+    "src/",
     "scripts/",
     "README.md",
     "LICENSE",
@@ -35,12 +38,11 @@
     "access": "public"
   },
   "bin": {
-    "lab-report": "scripts/entrypoint.js"
+    "lab-report": "src/cli/entrypoint.js"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.14"
-  },
-  "dependencies": {
+    "@biomejs/biome": "^2.4.14",
+    "@vercel/ncc": "^0.38.4",
     "node-pty": "^1.1.0"
   }
 }

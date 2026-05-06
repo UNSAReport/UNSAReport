@@ -35,6 +35,21 @@ directory without overwriting files that already exist.
 If you are working on this package itself, install dependencies locally with
 `npm install` and use `node scripts/install.js` for manual testing.
 
+## Development Notes
+
+Template runtime scripts are authored in `src/template/` and bundled into
+`template/` with `@vercel/ncc` so installed projects can execute them directly
+with plain `node` and no package dependencies.
+
+Build bundled template scripts with:
+
+```bash
+npm run build
+```
+
+`npm pack` / publish will automatically rebuild those bundled scripts via the
+`prepack` hook.
+
 ## Update
 
 If the published template changes later, update an existing project with:
