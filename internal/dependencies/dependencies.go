@@ -14,7 +14,6 @@ type Tool struct {
 var Required = []Tool{
 	{Name: "typst", Description: "Typst compiler"},
 	{Name: "freeze", Description: "charmbracelet/freeze (terminal capture renderer)"},
-	{Name: "magick", Description: "ImageMagick (SVG -> PNG conversion)"},
 }
 
 func CheckAll() error {

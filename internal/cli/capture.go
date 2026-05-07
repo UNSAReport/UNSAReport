@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/christianmz565/lab-report/internal/capture"
+	"github.com/christianmz565/lab-report/internal/svg"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +25,7 @@ func newCaptureCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "capture [flags] <output-file> <command> [ms:input]...",
-		Short: "Capture terminal output and render it to a PNG via freeze + magick",
+		Short: "Capture terminal output and render it to a PNG via freeze",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCapture(cmd.Context(), opt, args)
@@ -117,16 +118,9 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 		return fmt.Errorf("freeze command failed: %w", err)
 	}
 
-	magickCmd := exec.CommandContext(ctx, "magick",
-		"-density", "300",
-		"-background", "none",
-		svgPath,
-		pngPath,
-	)
-	magickCmd.Stdout = os.Stdout
-	magickCmd.Stderr = os.Stderr
-	if err := magickCmd.Run(); err != nil {
-		return fmt.Errorf("magick command failed: %w", err)
+	// Convert SVG to PNG using canvas library
+	if err := svg.ConvertSVGToPNG(svgPath, pngPath, 300); err != nil {
+		return fmt.Errorf("SVG to PNG conversion failed: %w", err)
 	}
 
 	_ = os.Remove(svgPath)

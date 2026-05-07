@@ -1,5 +1,3 @@
-//go:build !windows
-
 package capture
 
 import (
@@ -7,30 +5,37 @@ import (
 	"context"
 	"io"
 	"os"
-	"os/exec"
 	"time"
 
-	"github.com/creack/pty"
+	"github.com/aymanbagabas/go-pty"
 )
 
 func RunPTY(ctx context.Context, cwd string, command string, inputs []TimedInput) (string, error) {
-	shell := "bash"
-	shellArgs := []string{"-c", command}
-
-	cmd := exec.CommandContext(ctx, shell, shellArgs...)
-	cmd.Dir = cwd
-	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-
-	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: 100, Rows: 30})
+	p, err := pty.New()
 	if err != nil {
 		return "", err
 	}
-	defer ptmx.Close()
+	defer p.Close()
+
+	if err := p.Resize(100, 30); err != nil {
+		return "", err
+	}
+
+	shell := "bash"
+	shellArgs := []string{"-c", command}
+
+	cmd := p.CommandContext(ctx, shell, shellArgs...)
+	cmd.Dir = cwd
+	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
+
+	if err := cmd.Start(); err != nil {
+		return "", err
+	}
 
 	var buf bytes.Buffer
 	readDone := make(chan error, 1)
 	go func() {
-		_, err := io.Copy(&buf, ptmx)
+		_, err := io.Copy(&buf, p)
 		readDone <- err
 	}()
 
@@ -41,18 +46,18 @@ func RunPTY(ctx context.Context, cwd string, command string, inputs []TimedInput
 			_ = cmd.Process.Kill()
 			return "", ctx.Err()
 		case <-time.After(in.Delay):
-			_, _ = ptmx.Write([]byte(in.Text + "\r"))
+			_, _ = p.Write([]byte(in.Text + "\r"))
 		}
 	}
 
 	if len(inputs) > 0 {
 		time.Sleep(200 * time.Millisecond)
 		// Ctrl-D
-		_, _ = ptmx.Write([]byte{0x04})
+		_, _ = p.Write([]byte{0x04})
 	}
 
 	waitErr := cmd.Wait()
-	_ = ptmx.Close()
+	_ = p.Close()
 	_ = <-readDone
 
 	return buf.String(), waitErr
