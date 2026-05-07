@@ -1,5 +1,5 @@
 {
-  description = "A flake";
+  description = "Lab report template environment";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -17,9 +17,7 @@
             inherit system;
             config.allowUnfree = true;
           };
-          fonts = with pkgs; [
-            lato
-          ];
+          fonts = with pkgs; [ lato ];
         in
         pkgs.mkShell {
           LD_LIBRARY_PATH =
@@ -31,20 +29,18 @@
               libxcb
               libglvnd
             ];
+
           packages =
             with pkgs;
             [
-              # docling is marked as broken and like who can be bothered to setup uv2nix
-              # just uv run --with docling docling is good enough
               uv
               typst
               tinymist
               charm-freeze
               imagemagick
-              zip
-              nodejs
             ]
             ++ fonts;
+
           buildInputs = [ pkgs.bashInteractive ];
           shellHook = ''
             unset SOURCE_DATE_EPOCH

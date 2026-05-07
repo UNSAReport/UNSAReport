@@ -69,6 +69,8 @@
     let code = if snippet-name == none {
       source
     } else {
+      // TODO: this caused a build failure due to prefix being positional and not named
+      // however, i remember very clearly having built another lab report with this code
       extract-named-snippet(source, it.file, snippet-name, prefix: it.at("prefix"))
     }
 

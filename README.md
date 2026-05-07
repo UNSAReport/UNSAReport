@@ -1,65 +1,80 @@
-# EPIS Lab Report Template
+# Lab Report CLI
 
-This repository packages a Typst-based report template for EPIS/UNSA lab work.
-It is meant to be installed into a project directory and used to compile the
-report, capture terminal output when needed, and bundle the submission.
+This repository provides:
+
+- A Typst-based report template (fetched during install/update).
+- A cross-platform `lab-report` CLI that can scaffold/update projects, compile submissions, and capture terminal output.
 
 ## Requirements
 
-- Node.js 18 or newer.
-- `typst` on `PATH`.
-- A working `zip` command on Linux and macOS, or PowerShell on Windows for the
-	submission archive step.
-- `charmbracelet/freeze` and ImageMagick's `magick` command if you want terminal captures.
+The CLI validates these external tools on startup:
 
-The bundled `flake.nix` provides a ready-made environment with the template's
-native tooling if you prefer Nix.
+- `typst`
+- `freeze` (charmbracelet/freeze)
+- `magick` (ImageMagick)
 
-## Install
+If you prefer Nix, the included `flake.nix` provides a ready-made environment.
 
-Install the template into a project directory with a one-off command:
+## Install the CLI
 
-```bash
-npx @christianmz565/lab-report install --dest /path/to/lab-project
-```
-
-You can also use pnpm:
+### Go
 
 ```bash
-pnpx @christianmz565/lab-report install --dest /path/to/lab-project
+go install github.com/christianmz565/lab-report/cmd/lab-report@latest
 ```
 
-The installer copies the editable template files and assets into the target
-directory without overwriting files that already exist.
-
-If you are working on this package itself, install dependencies locally with
-`npm install` and use `node scripts/install.js` for manual testing.
-
-## Development Notes
-
-Template runtime scripts are authored in `src/template/` and bundled into
-`template/` with `@vercel/ncc` so installed projects can execute them directly
-with plain `node` and no package dependencies.
-
-Build bundled template scripts with:
+### Nix
 
 ```bash
-npm run build
+nix run github:christianmz565/lab-report -- --help
 ```
 
-`npm pack` / publish will automatically rebuild those bundled scripts via the
-`prepack` hook.
-
-## Update
-
-If the published template changes later, update an existing project with:
+## Install a template into a project
 
 ```bash
-npx @christianmz565/lab-report update --dest /path/to/lab-project
+lab-report install --dest /path/to/lab-project
 ```
+
+Multi-lab layout (global files at repo root, labs under `l1/`, `l2/`, ...):
 
 ```bash
-pnpx @christianmz565/lab-report update --dest /path/to/lab-project
+lab-report install --dest /path/to/labs --multi
 ```
 
-Use `--force` to apply all tracked file updates without prompting.
+## Update an existing project
+
+```bash
+lab-report update --dest /path/to/lab-project
+```
+
+Use `--force` to apply all updates without prompting.
+
+## Prepare a submission
+
+Single-lab:
+
+```bash
+cd /path/to/lab-project
+lab-report prepare
+```
+
+Multi-lab:
+
+```bash
+cd /path/to/labs
+lab-report prepare l1
+```
+
+Use `--configure` to re-run the PDF naming template prompt.
+
+## Capture terminal output
+
+```bash
+lab-report capture img/lab/session "typst compile report.typ report.pdf"
+```
+
+Inputs for interactive commands can be replayed with `ms:input` arguments:
+
+```bash
+lab-report capture img/lab/repl "bash" 1000:"echo done\\r" 2000:"exit\\r"
+```

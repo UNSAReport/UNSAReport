@@ -1,0 +1,32 @@
+{
+  "common": [
+    { "kind": "file", "src": "lib.typ", "dest": "lib.typ" },
+    { "kind": "file", "src": "flake.nix", "dest": "flake.nix" },
+    { "kind": "file", "src": "bibliography.bib", "dest": "bibliography.bib" },
+    { "kind": "file", "src": "README.md", "dest": "README.md" },
+    { "kind": "dir", "src": "img/fixed", "dest": "img/fixed" }
+  ],
+  "single": [
+    { "kind": "file", "src": "report.typ", "dest": "report.typ" },
+    { "kind": "dir", "src": "img/lab", "dest": "img/lab" },
+    { "kind": "dir", "src": "snippets", "dest": "snippets" },
+    { "kind": "dir", "src": "src", "dest": "src" },
+    { "kind": "dir", "src": "guide", "dest": "guide" }
+  ],
+  "multi": {
+    "readme": { "kind": "file", "src": "multi/README.md", "dest": "README.md" },
+    "root": [
+      { "kind": "dir", "src": "img/fixed", "dest": "img/fixed" },
+      { "kind": "file", "src": "flake.nix", "dest": "flake.nix" },
+      { "kind": "file", "src": "bibliography.bib", "dest": "bibliography.bib" },
+      { "kind": "file", "src": "lib.typ", "dest": "lib.typ" }
+    ],
+    "labFiles": [
+      { "kind": "file", "src": "multi/report.typ", "dest": "{lab}/report.typ" },
+      { "kind": "dir", "src": "img/lab", "dest": "{lab}/img/lab" },
+      { "kind": "dir", "src": "snippets", "dest": "{lab}/snippets" },
+      { "kind": "dir", "src": "src", "dest": "{lab}/src" },
+      { "kind": "dir", "src": "guide", "dest": "{lab}/guide" }
+    ]
+  }
+}
