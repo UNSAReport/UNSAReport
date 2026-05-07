@@ -22,9 +22,20 @@
           packages = with pkgs; [
             nodejs
             bun
+
+            cargo
+            rustc
+            rustfmt
+            clippy
+            rust-analyzer
+            zig
           ];
+          nativeBuildInputs = [ pkgs.pkg-config ];
+          env = {
+            RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+          };
           buildInputs = [ pkgs.bashInteractive ];
-          shellHook = '''';
+          shellHook = "";
         };
     };
 }
