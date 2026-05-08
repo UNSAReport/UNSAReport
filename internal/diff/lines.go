@@ -28,7 +28,7 @@ func UnifiedLineDiff(oldText, newText string) string {
 			prefix = "+"
 		}
 
-		for _, line := range strings.Split(d.Text, "\n") {
+		for line := range strings.SplitSeq(d.Text, "\n") {
 			if line == "" {
 				continue
 			}

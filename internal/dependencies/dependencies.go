@@ -30,7 +30,7 @@ func CheckAll() error {
 	var b strings.Builder
 	b.WriteString("missing required external tools on PATH:\n")
 	for _, m := range missing {
-		b.WriteString(fmt.Sprintf("  - %s (%s)\n", m.Name, m.Description))
+		fmt.Fprintf(&b, "  - %s (%s)\n", m.Name, m.Description)
 	}
 	b.WriteString("\nHint: install them (or use the provided Nix flake dev shell).\n")
 	return fmt.Errorf("%s", b.String())
