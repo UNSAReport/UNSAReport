@@ -1,4 +1,4 @@
-#import "../lib.typ": (
+#import "/lib.typ": (
   abbreviate-by-caps, code-block, get-var, header-border-color, lab-report, lab-section, summarize-name,
   table-border-width,
 )

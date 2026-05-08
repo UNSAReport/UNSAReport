@@ -6,12 +6,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/christianmz565/lab-report/internal/config"
+	"github.com/christianmz565/lab-report/internal/fsutil"
+	"github.com/christianmz565/lab-report/internal/naming"
 	"github.com/christianmz565/lab-report/internal/prepare"
 	"github.com/spf13/cobra"
 )
@@ -50,7 +52,7 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		return err
 	}
 
-	cfg, ok, err := ReadConfig(cwd)
+	cfg, ok, err := config.ReadConfig(cwd)
 	if err != nil {
 		fmt.Fprintln(os.Stdout, err.Error())
 	}
@@ -59,8 +61,8 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 	if ok {
 		isMulti = cfg.MultiLab
 	} else {
-		defaultCfg := LabReportConfig{MultiLab: labDir != ""}
-		if err := WriteConfig(cwd, defaultCfg); err != nil {
+		defaultCfg := config.LabReportConfig{MultiLab: labDir != ""}
+		if err := config.WriteConfig(cwd, defaultCfg); err != nil {
 			return err
 		}
 		cfg = defaultCfg
@@ -81,7 +83,7 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		srcDir = filepath.Join(labDir, "src")
 	}
 
-	if !FileExists(reportPath) {
+	if !fsutil.FileExists(reportPath) {
 		return fmt.Errorf("report file not found: %s", reportPath)
 	}
 
@@ -112,7 +114,7 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 
 	input := template
 	if input == "" {
-		input = "LAB_{lab_number}"
+		input = "{outputType}_{lab_number}"
 	}
 
 	for template == "" || opt.configure {
@@ -123,17 +125,34 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		for k := range vars {
 			keys = append(keys, k)
 		}
+		keys = append(keys, "outputType") // Explicitly add outputType
 		sort.Strings(keys)
 		for _, k := range keys {
-			fmt.Fprintf(os.Stdout, "  {%s}: %s\n", k, vars[k])
+			desc := vars[k]
+			if k == "outputType" {
+				desc = "Deliverable type (e.g., Informe or Código Fuente)"
+			}
+			fmt.Fprintf(os.Stdout, "  {%s}: %s\n", k, desc)
 		}
-		fmt.Fprintln(os.Stdout, "\nExample: LAB_{lab_number}_{members_abbr_list}")
+		fmt.Fprintln(os.Stdout, "\nExample: {outputType}_{lab_number}_{members_abbr_list}")
 
 		form := huh.NewForm(huh.NewGroup(
 			huh.NewInput().
 				Title("Enter the base name template (no extension)").
-				Placeholder("LAB_{lab_number}").
-				Suggestions([]string{"LAB_{lab_number}", "LAB_{lab_number}_{members_abbr_list}"}).
+				Placeholder("{outputType}_{lab_number}").
+				SuggestionsFunc(func() []string {
+					suggestions := make([]string, 0)
+					lastBrace := strings.LastIndex(input, "{")
+					if lastBrace != -1 && lastBrace > strings.LastIndex(input, "}") {
+						prefix := input[:lastBrace+1]
+						for _, k := range keys {
+							suggestions = append(suggestions, prefix+k+"}")
+						}
+					} else {
+						suggestions = []string{"{outputType}_{lab_number}", "{outputType}_{lab_number}_{members_abbr_list}"}
+					}
+					return suggestions
+				}, &input).
 				Value(&input),
 			huh.NewInput().
 				Title("Word for the report file").
@@ -148,7 +167,7 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 
 		input = strings.TrimSpace(input)
 		if input == "" {
-			input = "LAB_{lab_number}"
+			input = "{outputType}_{lab_number}"
 		}
 		reportWord = strings.TrimSpace(reportWord)
 		if reportWord == "" {
@@ -159,11 +178,13 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 			codeWord = "Código Fuente"
 		}
 
-		previewName := applyTemplate(input, vars)
+		previewReport := naming.ApplyTemplate(input, vars, reportWord)
+		previewCode := naming.ApplyTemplate(input, vars, codeWord)
+
 		var keep bool
 		confirm := huh.NewForm(huh.NewGroup(
 			huh.NewConfirm().
-				Title(fmt.Sprintf("Preview: %s_%s.pdf | %s_%s.zip", reportWord, previewName, codeWord, previewName)).
+				Title(fmt.Sprintf("Preview: %s.pdf | %s.zip", previewReport, previewCode)).
 				Value(&keep),
 		))
 		if err := confirm.Run(); err != nil {
@@ -174,7 +195,7 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 			cfg.SubmissionTemplate = template
 			cfg.ReportWord = reportWord
 			cfg.CodeWord = codeWord
-			if err := WriteConfig(cwd, cfg); err != nil {
+			if err := config.WriteConfig(cwd, cfg); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stdout, "Configuration saved to labreport.json\n")
@@ -182,14 +203,14 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		}
 	}
 
-	generatedName := applyTemplate(template, vars)
+	generatedReportName := naming.ApplyTemplate(template, vars, reportWord)
 
 	fmt.Fprintln(os.Stdout, "Compiling typst report...")
 	compileArgs := []string{"compile"}
 	if isMulti {
 		compileArgs = append(compileArgs, "--root", ".")
 	}
-	compileArgs = append(compileArgs, "--input", fmt.Sprintf("title=%s", generatedName), reportPath, reportPDF)
+	compileArgs = append(compileArgs, "--input", fmt.Sprintf("title=%s", generatedReportName), reportPath, reportPDF)
 
 	compileCmd := exec.CommandContext(ctx, "typst", compileArgs...)
 	compileCmd.Stdout = os.Stdout
@@ -202,14 +223,14 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 	if isMulti {
 		submissionDir = filepath.Join(labDir, "submission")
 	}
-	if err := EnsureDir(submissionDir); err != nil {
+	if err := fsutil.EnsureDir(submissionDir); err != nil {
 		return err
 	}
 
-	reportFile := fmt.Sprintf("%s_%s.pdf", cfg.ReportWord, generatedName)
-	codeFile := fmt.Sprintf("%s_%s.zip", cfg.CodeWord, generatedName)
+	reportFile := generatedReportName + ".pdf"
+	codeFile := naming.ApplyTemplate(template, vars, codeWord) + ".zip"
 
-	if err := CopyFile(reportPDF, filepath.Join(submissionDir, reportFile), 0o644); err != nil {
+	if err := fsutil.CopyFile(reportPDF, filepath.Join(submissionDir, reportFile), 0o644); err != nil {
 		return err
 	}
 
@@ -230,16 +251,3 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 	return nil
 }
 
-var reVar = regexp.MustCompile(`\{(\w+)\}`)
-
-func applyTemplate(tpl string, vars map[string]string) string {
-	return reVar.ReplaceAllStringFunc(tpl, func(m string) string {
-		sub := reVar.FindStringSubmatch(m)
-		if len(sub) == 2 {
-			if v, ok := vars[sub[1]]; ok {
-				return v
-			}
-		}
-		return m
-	})
-}

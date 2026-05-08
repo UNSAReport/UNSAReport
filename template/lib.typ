@@ -6,9 +6,9 @@
   caps.join("")
 }
 
-#let summarize-name(name, separate: false) = {
+#let summarize-name(name, separator: ",") = {
   let parts = name.split(" ")
-  parts.at(0) + { if separate { ", " } else { "," } } + parts.at(2)
+  parts.at(0) + separator + parts.at(2)
 }
 
 #let table-border-width = 0.5pt

@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/christianmz565/lab-report/internal/config"
 	"github.com/christianmz565/lab-report/internal/diff"
+	"github.com/christianmz565/lab-report/internal/fsutil"
 	"github.com/christianmz565/lab-report/internal/templates"
 	"github.com/spf13/cobra"
 )
@@ -70,7 +72,7 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 		return err
 	}
 
-	cfg, ok, err := ReadConfig(destDir)
+	cfg, ok, err := config.ReadConfig(destDir)
 	if err != nil {
 		fmt.Fprintln(os.Stdout, err.Error())
 		// keep going; we'll fall back to flags
@@ -80,8 +82,8 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 	if ok {
 		isMulti = isMulti || cfg.MultiLab
 	} else {
-		defaultCfg := LabReportConfig{MultiLab: isMulti}
-		if err := WriteConfig(destDir, defaultCfg); err != nil {
+		defaultCfg := config.LabReportConfig{MultiLab: isMulti}
+		if err := config.WriteConfig(destDir, defaultCfg); err != nil {
 			return err
 		}
 		cfg = defaultCfg
@@ -136,7 +138,7 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 
 		switch e.Kind {
 		case templates.KindDir:
-			if err := EnsureDir(dstPath); err != nil {
+			if err := fsutil.EnsureDir(dstPath); err != nil {
 				return err
 			}
 			continue
@@ -151,13 +153,13 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 			if lerr != nil && !isNew {
 				return lerr
 			}
-			if !isNew && SameContent(local, remote) {
+			if !isNew && fsutil.SameContent(local, remote) {
 				continue
 			}
 
 			label := e.Dest
 			apply := func() error {
-				if err := WriteFileAtomic(dstPath, remote, 0o644); err != nil {
+				if err := fsutil.WriteFileAtomic(dstPath, remote, 0o644); err != nil {
 					return err
 				}
 				applied++
@@ -296,7 +298,7 @@ func detectLabDirs(destDir string) []string {
 		if strings.HasPrefix(name, ".") || name == "node_modules" {
 			continue
 		}
-		if FileExists(filepath.Join(destDir, name, "report.typ")) {
+		if fsutil.FileExists(filepath.Join(destDir, name, "report.typ")) {
 			labs = append(labs, name)
 		}
 	}
@@ -343,7 +345,7 @@ func maybeRemoveLegacyScripts(destDir string, force bool) error {
 	found := make([]string, 0)
 	for _, f := range legacy {
 		p := filepath.Join(destDir, f)
-		if FileExists(p) {
+		if fsutil.FileExists(p) {
 			found = append(found, f)
 		}
 	}
@@ -381,3 +383,4 @@ func maybeRemoveLegacyScripts(destDir string, force bool) error {
 	}
 	return nil
 }
+

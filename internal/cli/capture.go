@@ -12,11 +12,15 @@ import (
 	"time"
 
 	"github.com/christianmz565/lab-report/internal/capture"
+	"github.com/christianmz565/lab-report/internal/config"
+	"github.com/christianmz565/lab-report/internal/fsutil"
 	"github.com/spf13/cobra"
 )
 
 type captureOptions struct {
-	cwd string
+	cwd             string
+	freezeFlags     string
+	saveFreezeFlags bool
 }
 
 func newCaptureCmd() *cobra.Command {
@@ -44,6 +48,8 @@ Example:
 	}
 
 	cmd.Flags().StringVar(&opt.cwd, "cwd", "", "Directory to run the command in (default: current directory)")
+	cmd.Flags().StringVar(&opt.freezeFlags, "freeze-flags", "", "Additional flags to pass to freeze (e.g., \"--theme dracula\")")
+	cmd.Flags().BoolVar(&opt.saveFreezeFlags, "save-freeze-flags", false, "Save the provided freeze flags as default in labreport.json")
 	return cmd
 }
 
@@ -63,17 +69,30 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 		return err
 	}
 
+	cfg, _, err := config.ReadConfig(cwd)
+	if err != nil {
+		// Ignore error, use defaults
+	}
+
+	if opt.saveFreezeFlags && opt.freezeFlags != "" {
+		cfg.FreezeFlags = strings.Fields(opt.freezeFlags)
+		if err := config.WriteConfig(cwd, cfg); err != nil {
+			return fmt.Errorf("failed to save freeze flags: %w", err)
+		}
+		fmt.Fprintln(os.Stdout, "Freeze flags saved to labreport.json")
+	}
+
 	outputFile := args[0]
 	rest := args[1:]
 	if len(rest) == 0 {
 		return fmt.Errorf("missing command")
 	}
 
-	if err := EnsureDir(filepath.Dir(outputFile)); err != nil && filepath.Dir(outputFile) != "." {
+	if err := fsutil.EnsureDir(filepath.Dir(outputFile)); err != nil && filepath.Dir(outputFile) != "." {
 		return err
 	}
 
-	if err := EnsureDir("capture_logs"); err != nil {
+	if err := fsutil.EnsureDir("capture_logs"); err != nil {
 		return err
 	}
 
@@ -95,19 +114,19 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 			i++
 		}
 
-		out.WriteString(formatPrompt(cmdStr))
+		out.WriteString(formatPrompt(cfg, cmdStr))
 
 		cmdOut, err := capture.RunPTY(ctx, cwd, cmdStr, inputs)
 		cmdOut = strings.ReplaceAll(cmdOut, "\r", "")
 		out.WriteString(cmdOut)
 		if err != nil {
 			// Still continue to render what we got.
-			out.WriteString(fmt.Sprintf("\n[command exited with error: %v]\n", err))
+			fmt.Fprintf(&out, "\n[command exited with error: %v]\n", err)
 		}
 	}
 
 	full := out.String()
-	if err := WriteFileAtomic(logFile, []byte(full), 0o644); err != nil {
+	if err := fsutil.WriteFileAtomic(logFile, []byte(full), 0o644); err != nil {
 		return err
 	}
 
@@ -115,12 +134,21 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 
 	pngPath := outputFile + ".png"
 
-	freezeCmd := exec.CommandContext(ctx, "freeze",
+	freezeArgs := []string{
 		"--width", "1000",
 		"--output", pngPath,
 		"--language", "ansi",
-		"-c", "user",
-	)
+	}
+
+	// Add saved flags
+	freezeArgs = append(freezeArgs, cfg.FreezeFlags...)
+
+	// Add live flags
+	if opt.freezeFlags != "" {
+		freezeArgs = append(freezeArgs, strings.Fields(opt.freezeFlags)...)
+	}
+
+	freezeCmd := exec.CommandContext(ctx, "freeze", freezeArgs...)
 	freezeCmd.Stdin = bytes.NewReader([]byte(full))
 	freezeCmd.Stdout = os.Stdout
 	freezeCmd.Stderr = os.Stderr
@@ -156,12 +184,17 @@ func unescapeTimedText(s string) string {
 	return r.Replace(s)
 }
 
-func formatPrompt(command string) string {
-	esc := "\x1b"
-	reset := esc + "[0m"
-	green := esc + "[38;5;114m"
-	blue := esc + "[38;5;111m"
-	flamingo := esc + "[38;5;217m"
+func formatPrompt(cfg config.LabReportConfig, command string) string {
+	esc := "\x1b["
+	reset := esc + cfg.CaptureColors["reset"] + "m"
+	promptColor := esc + cfg.CaptureColors["prompt"] + "m"
+	cmdColor := esc + cfg.CaptureColors["command"] + "m"
+	argsColor := esc + cfg.CaptureColors["args"] + "m"
+
+	prompt := cfg.CapturePrompt
+	if prompt == "" {
+		prompt = "❯ "
+	}
 
 	words := strings.Fields(command)
 	first := command
@@ -171,9 +204,10 @@ func formatPrompt(command string) string {
 		rest = strings.TrimSpace(strings.TrimPrefix(command, first))
 	}
 
-	colored := blue + first + reset
+	colored := cmdColor + first + reset
 	if rest != "" {
-		colored += " " + flamingo + rest + reset
+		colored += " " + argsColor + rest + reset
 	}
-	return green + "❯ " + colored + "\n" + reset
+	return promptColor + prompt + colored + "\n" + reset
 }
+

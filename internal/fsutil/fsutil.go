@@ -1,4 +1,4 @@
-package cli
+package fsutil
 
 import (
 	"crypto/sha256"

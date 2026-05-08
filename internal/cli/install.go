@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/christianmz565/lab-report/internal/config"
+	"github.com/christianmz565/lab-report/internal/fsutil"
 	"github.com/christianmz565/lab-report/internal/templates"
 	"github.com/spf13/cobra"
 )
@@ -83,7 +85,7 @@ func runInstall(ctx context.Context, opt installOptions) error {
 		}
 	}
 
-	if err := EnsureDir(destDir); err != nil {
+	if err := fsutil.EnsureDir(destDir); err != nil {
 		return err
 	}
 
@@ -112,7 +114,7 @@ func runInstall(ctx context.Context, opt installOptions) error {
 		}
 	}
 
-	if err := WriteConfig(destDir, LabReportConfig{MultiLab: opt.multi}); err != nil {
+	if err := config.WriteConfig(destDir, config.LabReportConfig{MultiLab: opt.multi}); err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stdout, "Created: labreport.json (Mode: %s)\n", map[bool]string{true: "multi", false: "single"}[opt.multi])
@@ -162,7 +164,7 @@ func applyEntryInstall(files templates.Files, destDir string, e templates.Entry)
 
 	switch e.Kind {
 	case templates.KindDir:
-		if err := EnsureDir(dstPath); err != nil {
+		if err := fsutil.EnsureDir(dstPath); err != nil {
 			return err
 		}
 		// Copy any files under the directory if present in the remote template.
@@ -176,10 +178,10 @@ func applyEntryInstall(files templates.Files, destDir string, e templates.Entry)
 				continue
 			}
 			dstFile := filepath.Join(dstPath, filepath.FromSlash(rel))
-			if FileExists(dstFile) {
+			if fsutil.FileExists(dstFile) {
 				continue
 			}
-			if err := WriteFileAtomic(dstFile, data, 0o644); err != nil {
+			if err := fsutil.WriteFileAtomic(dstFile, data, 0o644); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stdout, "Copied:  %s\n", filepath.ToSlash(filepath.Join(e.Dest, rel)))
@@ -191,11 +193,11 @@ func applyEntryInstall(files templates.Files, destDir string, e templates.Entry)
 		if !ok {
 			// For local-only files (like .prepare.config), create an empty file.
 			if strings.HasPrefix(e.Src, ".") {
-				if FileExists(dstPath) {
+				if fsutil.FileExists(dstPath) {
 					fmt.Fprintf(os.Stdout, "Skipped: %s (already exists)\n", e.Dest)
 					return nil
 				}
-				if err := WriteFileAtomic(dstPath, []byte(""), 0o644); err != nil {
+				if err := fsutil.WriteFileAtomic(dstPath, []byte(""), 0o644); err != nil {
 					return err
 				}
 				fmt.Fprintf(os.Stdout, "Created: %s\n", e.Dest)
@@ -204,11 +206,11 @@ func applyEntryInstall(files templates.Files, destDir string, e templates.Entry)
 			return nil
 		}
 
-		if FileExists(dstPath) {
+		if fsutil.FileExists(dstPath) {
 			fmt.Fprintf(os.Stdout, "Skipped: %s (already exists)\n", e.Dest)
 			return nil
 		}
-		if err := WriteFileAtomic(dstPath, data, 0o644); err != nil {
+		if err := fsutil.WriteFileAtomic(dstPath, data, 0o644); err != nil {
 			return err
 		}
 		fmt.Fprintf(os.Stdout, "Copied:  %s\n", e.Dest)
@@ -227,3 +229,4 @@ func substituteLab(entries []templates.Entry, lab string) []templates.Entry {
 	}
 	return out
 }
+
