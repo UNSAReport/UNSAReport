@@ -123,10 +123,6 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 	fmt.Fprintf(os.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti])
 	fmt.Fprintf(os.Stdout, "Checking for updates in: %s\n\n", destDir)
 
-	if err := maybeRemoveLegacyScripts(destDir, opt.force); err != nil {
-		return err
-	}
-
 	entries := buildUpdateEntries(m, isMulti, destDir)
 	entries = expandDirEntries(remoteFiles, entries)
 	applied := 0
@@ -339,48 +335,3 @@ func promptUpdateDecision(label string) (updateDecision, error) {
 	}
 	return choice, nil
 }
-
-func maybeRemoveLegacyScripts(destDir string, force bool) error {
-	legacy := []string{"prepare.js", "capture.js"}
-	found := make([]string, 0)
-	for _, f := range legacy {
-		p := filepath.Join(destDir, f)
-		if fsutil.FileExists(p) {
-			found = append(found, f)
-		}
-	}
-	if len(found) == 0 {
-		return nil
-	}
-
-	if force {
-		for _, f := range found {
-			_ = os.Remove(filepath.Join(destDir, f))
-			fmt.Fprintf(os.Stdout, "Removed legacy script: %s\n", f)
-		}
-		return nil
-	}
-
-	var confirm bool
-	form := huh.NewForm(huh.NewGroup(
-		huh.NewConfirm().
-			Title("Remove legacy Node scripts (prepare.js/capture.js)?").
-			Description("These are no longer needed; use `lab-report prepare` and `lab-report capture` instead.").
-			Value(&confirm),
-	))
-	if err := form.Run(); err != nil {
-		return err
-	}
-	if !confirm {
-		return nil
-	}
-
-	for _, f := range found {
-		if err := os.Remove(filepath.Join(destDir, f)); err != nil {
-			return err
-		}
-		fmt.Fprintf(os.Stdout, "Removed legacy script: %s\n", f)
-	}
-	return nil
-}
-

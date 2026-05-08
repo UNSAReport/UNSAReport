@@ -7,14 +7,22 @@ import (
 	"path/filepath"
 )
 
+type SubmissionConfig struct {
+	Template   string `json:"template,omitempty"`
+	ReportWord string `json:"reportWord,omitempty"`
+	CodeWord   string `json:"codeWord,omitempty"`
+}
+
+type CaptureConfig struct {
+	Prompt      string            `json:"prompt,omitempty"`
+	Colors      map[string]string `json:"colors,omitempty"`
+	FreezeFlags []string          `json:"freezeFlags,omitempty"`
+}
+
 type LabReportConfig struct {
-	MultiLab           bool              `json:"multiLab"`
-	SubmissionTemplate string            `json:"submissionTemplate,omitempty"`
-	ReportWord         string            `json:"reportWord,omitempty"`
-	CodeWord           string            `json:"codeWord,omitempty"`
-	FreezeFlags        []string          `json:"freezeFlags,omitempty"`
-	CapturePrompt      string            `json:"capturePrompt,omitempty"`
-	CaptureColors      map[string]string `json:"captureColors,omitempty"`
+	MultiLab   bool             `json:"multiLab"`
+	Submission SubmissionConfig `json:"submission,omitempty"`
+	Capture    CaptureConfig    `json:"capture,omitempty"`
 }
 
 func ReadConfig(destDir string) (cfg LabReportConfig, ok bool, err error) {
@@ -45,12 +53,14 @@ func WriteConfig(destDir string, cfg LabReportConfig) error {
 
 func DefaultConfig() LabReportConfig {
 	return LabReportConfig{
-		CapturePrompt: "❯ ",
-		CaptureColors: map[string]string{
-			"prompt":   "38;5;114",
-			"command":  "38;5;111",
-			"args":     "38;5;217",
-			"reset":    "0",
+		Capture: CaptureConfig{
+			Prompt: "❯ ",
+			Colors: map[string]string{
+				"prompt":  "38;5;114",
+				"command": "38;5;111",
+				"args":    "38;5;217",
+				"reset":   "0",
+			},
 		},
 	}
 }

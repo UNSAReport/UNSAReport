@@ -93,21 +93,21 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 
-	vars, err := prepare.QueryVars(ctx, reportPath, isMulti)
+	vars, err := prepare.QueryVars(ctx, reportPath)
 	if err != nil {
 		return err
 	}
 
 	template := ""
-	if !opt.configure && cfg.SubmissionTemplate != "" {
-		template = cfg.SubmissionTemplate
+	if !opt.configure && cfg.Submission.Template != "" {
+		template = cfg.Submission.Template
 	}
 
-	reportWord := cfg.ReportWord
+	reportWord := cfg.Submission.ReportWord
 	if reportWord == "" {
 		reportWord = "Informe"
 	}
-	codeWord := cfg.CodeWord
+	codeWord := cfg.Submission.CodeWord
 	if codeWord == "" {
 		codeWord = "Código Fuente"
 	}
@@ -192,9 +192,9 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		}
 		if keep {
 			template = input
-			cfg.SubmissionTemplate = template
-			cfg.ReportWord = reportWord
-			cfg.CodeWord = codeWord
+			cfg.Submission.Template = template
+			cfg.Submission.ReportWord = reportWord
+			cfg.Submission.CodeWord = codeWord
 			if err := config.WriteConfig(cwd, cfg); err != nil {
 				return err
 			}
@@ -206,16 +206,7 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 	generatedReportName := naming.ApplyTemplate(template, vars, reportWord)
 
 	fmt.Fprintln(os.Stdout, "Compiling typst report...")
-	compileArgs := []string{"compile"}
-	if isMulti {
-		compileArgs = append(compileArgs, "--root", ".")
-	}
-	compileArgs = append(compileArgs, "--input", fmt.Sprintf("title=%s", generatedReportName), reportPath, reportPDF)
-
-	compileCmd := exec.CommandContext(ctx, "typst", compileArgs...)
-	compileCmd.Stdout = os.Stdout
-	compileCmd.Stderr = os.Stderr
-	if err := compileCmd.Run(); err != nil {
+	if err := prepare.Compile(ctx, reportPath, reportPDF, generatedReportName); err != nil {
 		return err
 	}
 
@@ -250,4 +241,3 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 	fmt.Fprintf(os.Stdout, "Code:  %s\n", filepath.Join(submissionDir, codeFile))
 	return nil
 }
-

@@ -1,16 +1,5 @@
 #import "@preview/elembic:1.1.1" as e
 
-#let abbreviate-by-caps(word) = {
-  let chars = word.clusters()
-  let caps = chars.filter(c => c == upper(c) and c != lower(c))
-  caps.join("")
-}
-
-#let summarize-name(name, separator: ",") = {
-  let parts = name.split(" ")
-  parts.at(0) + separator + parts.at(2)
-}
-
 #let table-border-width = 0.5pt
 #let header-border-color = rgb("#808080")
 #let tb-header-bg-color = rgb("#C8310E")
@@ -69,9 +58,7 @@
     let code = if snippet-name == none {
       source
     } else {
-      // TODO: this caused a build failure due to prefix being positional and not named
-      // however, i remember very clearly having built another lab report with this code
-      extract-named-snippet(source, it.file, snippet-name, prefix: it.at("prefix"))
+      extract-named-snippet(source, it.file, snippet-name, it.at("prefix"))
     }
 
     block(
@@ -258,6 +245,30 @@
         top: 6cm,
         bottom: 2.54cm,
         left: 1.9cm,
+        right: 1.9cm,
+      ),
+      header: page-header(),
+      header-ascent: 5%,
+    )
+
+    align(center)[#text(size: 13pt, weight: "bold")[INFORME DE LABORATORIO]]
+
+    basic-info-table(
+      course-name,
+      lab-title,
+      lab-number,
+      resolved-year,
+      sem-code,
+      resolved-presentation-date,
+      presentation-hour,
+      member-list,
+      instructor-name,
+    )
+
+    it.body
+  },
+)
+t: 1.9cm,
         right: 1.9cm,
       ),
       header: page-header(),

@@ -75,7 +75,7 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 	}
 
 	if opt.saveFreezeFlags && opt.freezeFlags != "" {
-		cfg.FreezeFlags = strings.Fields(opt.freezeFlags)
+		cfg.Capture.FreezeFlags = strings.Fields(opt.freezeFlags)
 		if err := config.WriteConfig(cwd, cfg); err != nil {
 			return fmt.Errorf("failed to save freeze flags: %w", err)
 		}
@@ -141,7 +141,7 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 	}
 
 	// Add saved flags
-	freezeArgs = append(freezeArgs, cfg.FreezeFlags...)
+	freezeArgs = append(freezeArgs, cfg.Capture.FreezeFlags...)
 
 	// Add live flags
 	if opt.freezeFlags != "" {
@@ -186,12 +186,12 @@ func unescapeTimedText(s string) string {
 
 func formatPrompt(cfg config.LabReportConfig, command string) string {
 	esc := "\x1b["
-	reset := esc + cfg.CaptureColors["reset"] + "m"
-	promptColor := esc + cfg.CaptureColors["prompt"] + "m"
-	cmdColor := esc + cfg.CaptureColors["command"] + "m"
-	argsColor := esc + cfg.CaptureColors["args"] + "m"
+	reset := esc + cfg.Capture.Colors["reset"] + "m"
+	promptColor := esc + cfg.Capture.Colors["prompt"] + "m"
+	cmdColor := esc + cfg.Capture.Colors["command"] + "m"
+	argsColor := esc + cfg.Capture.Colors["args"] + "m"
 
-	prompt := cfg.CapturePrompt
+	prompt := cfg.Capture.Prompt
 	if prompt == "" {
 		prompt = "❯ "
 	}
@@ -210,4 +210,3 @@ func formatPrompt(cfg config.LabReportConfig, command string) string {
 	}
 	return promptColor + prompt + colored + "\n" + reset
 }
-

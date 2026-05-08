@@ -19,7 +19,8 @@
       { "kind": "dir", "src": "img/fixed", "dest": "img/fixed" },
       { "kind": "file", "src": "flake.nix", "dest": "flake.nix" },
       { "kind": "file", "src": "bibliography.bib", "dest": "bibliography.bib" },
-      { "kind": "file", "src": "lib.typ", "dest": "lib.typ" }
+      { "kind": "file", "src": "lib.typ", "dest": "lib.typ" },
+      { "kind": "file", "src": "functions.typ", "dest": "functions.typ" }
     ],
     "labFiles": [
       { "kind": "file", "src": "multi/report.typ", "dest": "{lab}/report.typ" },

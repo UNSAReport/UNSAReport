@@ -1,18 +1,16 @@
-#import "/lib.typ": (
-  abbreviate-by-caps, code-block, get-var, header-border-color, lab-report, lab-section, summarize-name,
-  table-border-width,
-)
+#import "/lib.typ": code-block, get-var, header-border-color, lab-report, lab-section, table-border-width
+#import "/functions.typ": abbreviate-by-caps, summarize-name
 #import "@preview/elembic:1.1.1" as e
 
-#let doc_title = sys.inputs.at("title", default: "Informe de Laboratorio")
 #show: e.set_(code-block, lang: "python")
+#show: e.set_(code-block, prefix: "#")
 
 #let define(name, value) = {
   [#metadata((name: name, value: value)) <var_export>]
 }
 
 // Required vars: course_name, lab_title, lab_number, instructor_name, members
-// Optional vars: year, presentation_date, course_abbr, member_abbr_list, sem_code, presentation_hour
+// Optional vars: year, presentation_date, course_abbr, shortnames_chain, surnames_chain, sem_code, presentation_hour, wide_lab_number
 // Anything else you can use for submission.js config
 
 #define("course_name", "Ingeniería de Software")
@@ -20,15 +18,16 @@
 #define("lab_number", "01")
 #define("instructor_name", "Nombre del Docente")
 #define("members", (
-  "Apellidos Apellidos Nombres Nombres",
-  "Apellidos Apellidos Nombres Nombres",
-  "Apellidos Apellidos Nombres Nombres",
+  "Apellidos1 Apellidos1 Nombres1 Nombres1",
+  "Apellidos2 Apellidos2 Nombres2 Nombres2",
+  "Apellidos3 Apellidos3 Nombres3 Nombres3",
 ))
 
 #context {
   define("course_abbr", abbreviate-by-caps(get-var("course_name")))
-  define("members_abbr_list", get-var("members").map(name => summarize-name(name)).join("_"))
-  define("full_lab_number", numbering("001", int(get-var("lab_number"))))
+  define("shortnames_chain", get-var("members").map(name => summarize-name(name)).join("_"))
+  define("surnames_chain", get-var("members").map(name => summarize-name(name, positions: (0,))).join("-"))
+  define("wide_lab_number", numbering("001", int(get-var("lab_number"))))
 }
 
 #lab-report()[
@@ -68,6 +67,6 @@
 
   #lab-section("REFERENCIAS")[
     #show heading: set text(weight: "bold")
-    #bibliography("../bibliography.bib", style: "ieee")
+    #bibliography("/bibliography.bib", style: "ieee")
   ]
 ]

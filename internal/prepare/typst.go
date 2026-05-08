@@ -5,22 +5,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
 
 type queryItem struct {
 	Value *struct {
-		Name  string      `json:"name"`
-		Value interface{} `json:"value"`
+		Name  string `json:"name"`
+		Value any    `json:"value"`
 	} `json:"value"`
 }
 
-func QueryVars(ctx context.Context, reportPath string, useRoot bool) (map[string]string, error) {
+func QueryVars(ctx context.Context, reportPath string) (map[string]string, error) {
 	args := []string{"query"}
-	if useRoot {
-		args = append(args, "--root", ".")
-	}
 	args = append(args, reportPath, "<var_export>")
 
 	cmd := exec.CommandContext(ctx, "typst", args...)
@@ -47,7 +45,7 @@ func QueryVars(ctx context.Context, reportPath string, useRoot bool) (map[string
 		}
 
 		switch v := it.Value.Value.(type) {
-		case []interface{}:
+		case []any:
 			parts := make([]string, 0, len(v))
 			for _, p := range v {
 				parts = append(parts, fmt.Sprint(p))
@@ -60,18 +58,12 @@ func QueryVars(ctx context.Context, reportPath string, useRoot bool) (map[string
 	return vars, nil
 }
 
-func Compile(ctx context.Context, reportPath, reportPDF, title string, useRoot bool) error {
+func Compile(ctx context.Context, reportPath, reportPDF, title string) error {
 	args := []string{"compile"}
-	if useRoot {
-		args = append(args, "--root", ".")
-	}
 	args = append(args, "--input", fmt.Sprintf("title=%s", title), reportPath, reportPDF)
 
 	cmd := exec.CommandContext(ctx, "typst", args...)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	// The CLI layer wires stdio for user visibility.
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }

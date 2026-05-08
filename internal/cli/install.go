@@ -229,4 +229,3 @@ func substituteLab(entries []templates.Entry, lab string) []templates.Entry {
 	}
 	return out
 }
-
