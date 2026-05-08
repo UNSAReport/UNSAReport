@@ -14,6 +14,7 @@ import (
 	"github.com/christianmz565/lab-report/internal/capture"
 	"github.com/christianmz565/lab-report/internal/config"
 	"github.com/christianmz565/lab-report/internal/fsutil"
+	"github.com/mattn/go-shellwords"
 	"github.com/spf13/cobra"
 )
 
@@ -69,14 +70,36 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 		return err
 	}
 
-	cfg, _, err := config.ReadConfig(cwd)
+	projectRoot, cfg, ok, err := config.FindProjectRoot(cwd)
 	if err != nil {
 		// Ignore error, use defaults
 	}
+	if !ok {
+		defaultCfg := config.DefaultConfig()
+		if err := config.WriteConfig(cwd, defaultCfg); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stdout, "labreport.json not found. Created default config in the current directory.")
+		fmt.Fprintln(os.Stdout, "Please validate the configuration and run the command again.")
+		os.Exit(0)
+	}
+
+	if err := os.Chdir(projectRoot); err != nil {
+		return err
+	}
+
+	// Parse freeze flags securely using the community-standard shellwords parser
+	var parsedFreezeFlags []string
+	if opt.freezeFlags != "" {
+		parsedFreezeFlags, err = shellwords.Parse(opt.freezeFlags)
+		if err != nil {
+			return fmt.Errorf("invalid freeze-flags formatting: %w", err)
+		}
+	}
 
 	if opt.saveFreezeFlags && opt.freezeFlags != "" {
-		cfg.Capture.FreezeFlags = strings.Fields(opt.freezeFlags)
-		if err := config.WriteConfig(cwd, cfg); err != nil {
+		cfg.Capture.FreezeFlags = parsedFreezeFlags
+		if err := config.WriteConfig(projectRoot, cfg); err != nil {
 			return fmt.Errorf("failed to save freeze flags: %w", err)
 		}
 		fmt.Fprintln(os.Stdout, "Freeze flags saved to labreport.json")
@@ -145,7 +168,7 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 
 	// Add live flags
 	if opt.freezeFlags != "" {
-		freezeArgs = append(freezeArgs, strings.Fields(opt.freezeFlags)...)
+		freezeArgs = append(freezeArgs, parsedFreezeFlags...)
 	}
 
 	freezeCmd := exec.CommandContext(ctx, "freeze", freezeArgs...)

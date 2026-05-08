@@ -52,7 +52,7 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		return err
 	}
 
-	cfg, ok, err := config.ReadConfig(cwd)
+	projectRoot, cfg, ok, err := config.FindProjectRoot(cwd)
 	if err != nil {
 		fmt.Fprintln(os.Stdout, err.Error())
 	}
@@ -65,13 +65,24 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		if err := config.WriteConfig(cwd, defaultCfg); err != nil {
 			return err
 		}
-		cfg = defaultCfg
-		fmt.Fprintln(os.Stdout, "labreport.json not found. Created default config.")
-		isMulti = cfg.MultiLab
+		fmt.Fprintln(os.Stdout, "labreport.json not found. Created default config in the current directory.")
+		fmt.Fprintln(os.Stdout, "Please validate the configuration and run the command again.")
+		os.Exit(0)
 	}
 
 	if isMulti && labDir == "" {
-		return fmt.Errorf("multi-lab mode detected. Please specify a lab directory (e.g., lab-report prepare l1)")
+		rel, err := filepath.Rel(projectRoot, cwd)
+		if err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			parts := strings.Split(rel, string(filepath.Separator))
+			labDir = parts[0]
+		}
+		if labDir == "" {
+			return fmt.Errorf("multi-lab mode detected. Please specify a lab directory (e.g., lab-report prepare l1)")
+		}
+	}
+
+	if err := os.Chdir(projectRoot); err != nil {
+		return err
 	}
 
 	reportPath := "report.typ"
@@ -195,7 +206,7 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 			cfg.Submission.Template = template
 			cfg.Submission.ReportWord = reportWord
 			cfg.Submission.CodeWord = codeWord
-			if err := config.WriteConfig(cwd, cfg); err != nil {
+			if err := config.WriteConfig(projectRoot, cfg); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stdout, "Configuration saved to labreport.json\n")

@@ -72,7 +72,7 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 		return err
 	}
 
-	cfg, ok, err := config.ReadConfig(destDir)
+	projectRoot, cfg, ok, err := config.FindProjectRoot(destDir)
 	if err != nil {
 		fmt.Fprintln(os.Stdout, err.Error())
 		// keep going; we'll fall back to flags
@@ -81,13 +81,19 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 	isMulti := opt.multi
 	if ok {
 		isMulti = isMulti || cfg.MultiLab
+		destDir = projectRoot
 	} else {
 		defaultCfg := config.LabReportConfig{MultiLab: isMulti}
 		if err := config.WriteConfig(destDir, defaultCfg); err != nil {
 			return err
 		}
-		cfg = defaultCfg
-		fmt.Fprintln(os.Stdout, "labreport.json not found. Created default config.")
+		fmt.Fprintln(os.Stdout, "labreport.json not found. Created default config in the target directory.")
+		fmt.Fprintln(os.Stdout, "Please validate the configuration and run the command again.")
+		os.Exit(0)
+	}
+
+	if err := os.Chdir(destDir); err != nil {
+		return err
 	}
 
 	owner, repo, err := templates.ParseRepo(opt.repo)

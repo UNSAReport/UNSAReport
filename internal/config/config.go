@@ -25,6 +25,22 @@ type LabReportConfig struct {
 	Capture    CaptureConfig    `json:"capture,omitempty"`
 }
 
+func FindProjectRoot(startDir string) (projectRoot string, cfg LabReportConfig, ok bool, err error) {
+	currentDir := startDir
+	for {
+		cfg, ok, err = ReadConfig(currentDir)
+		if ok || err != nil {
+			return currentDir, cfg, ok, err
+		}
+		parentDir := filepath.Dir(currentDir)
+		if parentDir == currentDir {
+			break
+		}
+		currentDir = parentDir
+	}
+	return startDir, DefaultConfig(), false, nil
+}
+
 func ReadConfig(destDir string) (cfg LabReportConfig, ok bool, err error) {
 	path := filepath.Join(destDir, "labreport.json")
 	cfg = DefaultConfig() // Start with defaults

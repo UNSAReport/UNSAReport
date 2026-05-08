@@ -18,7 +18,7 @@ type queryItem struct {
 }
 
 func QueryVars(ctx context.Context, reportPath string) (map[string]string, error) {
-	args := []string{"query"}
+	args := []string{"query", "--root", "."}
 	args = append(args, reportPath, "<var_export>")
 
 	cmd := exec.CommandContext(ctx, "typst", args...)
@@ -59,7 +59,7 @@ func QueryVars(ctx context.Context, reportPath string) (map[string]string, error
 }
 
 func Compile(ctx context.Context, reportPath, reportPDF, title string) error {
-	args := []string{"compile"}
+	args := []string{"compile", "--root", "."}
 	args = append(args, "--input", fmt.Sprintf("title=%s", title), reportPath, reportPDF)
 
 	cmd := exec.CommandContext(ctx, "typst", args...)

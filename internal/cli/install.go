@@ -55,34 +55,31 @@ func runInstall(ctx context.Context, opt installOptions) error {
 		return err
 	}
 
-	owner, repo, err := templates.ParseRepo(opt.repo)
-	if err != nil {
-		return err
-	}
-	src := templates.Source{Owner: owner, Repo: repo, Ref: opt.ref}
-
-	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel()
-
-	files, err := templates.Fetch(ctx, src)
-	if err != nil {
-		// Dev/offline fallback: if running from the repo, use ./template.
-		if local, lerr := templates.LoadFromDir("template"); lerr == nil {
-			files = local
-		} else {
-			return err
-		}
-	}
-	m, err := templates.LoadManifest(files)
-	if err != nil {
-		// Dev/offline fallback if the remote repo hasn't been updated yet.
-		if local, lerr := templates.LoadFromDir("template"); lerr == nil {
-			files = local
-			m, err = templates.LoadManifest(files)
-		}
+	var files templates.Files
+	if info, err := os.Stat(opt.repo); err == nil && info.IsDir() {
+		files, err = templates.LoadFromDir(opt.repo)
 		if err != nil {
 			return err
 		}
+	} else {
+		owner, repo, err := templates.ParseRepo(opt.repo)
+		if err != nil {
+			return err
+		}
+		src := templates.Source{Owner: owner, Repo: repo, Ref: opt.ref}
+
+		ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+		defer cancel()
+
+		files, err = templates.Fetch(ctx, src)
+		if err != nil {
+			return err
+		}
+	}
+
+	m, err := templates.LoadManifest(files)
+	if err != nil {
+		return err
 	}
 
 	if err := fsutil.EnsureDir(destDir); err != nil {
