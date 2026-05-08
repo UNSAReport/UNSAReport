@@ -44,9 +44,6 @@
 
     = Ejercicio 1
 
-    #lorem(3)
-
-    #code-block("src/e1/placeholder.txt")
   ]
 
   #v(0.5em)
