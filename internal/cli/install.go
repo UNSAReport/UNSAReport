@@ -25,7 +25,12 @@ func newInstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "Install the template into a destination directory",
+		Long: `Install the lab report template files into a specified directory.
+Downloads the latest templates from the repository and initializes the labreport.json configuration.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return cmd.Help()
+			}
 			return runInstall(cmd.Context(), opt)
 		},
 	}
@@ -105,15 +110,6 @@ func runInstall(ctx context.Context, opt installOptions) error {
 		if err := applyEntriesInstall(files, destDir, append(m.Common, m.Single...)); err != nil {
 			return err
 		}
-	}
-
-	// .prepare.config is user-owned; ensure it exists but never overwrite it.
-	prepareCfg := filepath.Join(destDir, ".prepare.config")
-	if !FileExists(prepareCfg) {
-		if err := WriteFileAtomic(prepareCfg, []byte(""), 0o644); err != nil {
-			return err
-		}
-		fmt.Fprintln(os.Stdout, "Created: .prepare.config")
 	}
 
 	if err := WriteConfig(destDir, LabReportConfig{MultiLab: opt.multi}); err != nil {

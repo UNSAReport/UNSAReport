@@ -25,11 +25,16 @@ func newPrepareCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "prepare [lab-dir]",
 		Short: "Compile the Typst report and create the submission bundle",
-		Args:  cobra.MaximumNArgs(1),
+		Long: `Compile the Typst report into PDF and package the source code into a ZIP for submission.
+
+Arguments:
+  [lab-dir]  Optional. Required only in multi-lab mode. Specifies the subdirectory for the specific lab (e.g., 'l1').`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var labDir string
 			if len(args) == 1 {
 				labDir = args[0]
+			} else if len(args) > 1 {
+				return cmd.Help()
 			}
 			return runPrepare(cmd.Context(), opt, labDir)
 		},
@@ -58,7 +63,9 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		if err := WriteConfig(cwd, defaultCfg); err != nil {
 			return err
 		}
-		return fmt.Errorf("labreport.json not found. Created default config; please verify and run again")
+		cfg = defaultCfg
+		fmt.Fprintln(os.Stdout, "labreport.json not found. Created default config.")
+		isMulti = cfg.MultiLab
 	}
 
 	if isMulti && labDir == "" {
@@ -89,16 +96,26 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		return err
 	}
 
-	templatePath := filepath.Join(cwd, ".prepare.config")
 	template := ""
-	if FileExists(templatePath) && !opt.configure {
-		b, err := os.ReadFile(templatePath)
-		if err == nil {
-			template = strings.TrimSpace(string(b))
-		}
+	if !opt.configure && cfg.SubmissionTemplate != "" {
+		template = cfg.SubmissionTemplate
 	}
 
-	for strings.TrimSpace(template) == "" {
+	reportWord := cfg.ReportWord
+	if reportWord == "" {
+		reportWord = "Informe"
+	}
+	codeWord := cfg.CodeWord
+	if codeWord == "" {
+		codeWord = "Código Fuente"
+	}
+
+	input := template
+	if input == "" {
+		input = "LAB_{lab_number}"
+	}
+
+	for template == "" || opt.configure {
 		fmt.Fprintln(os.Stdout, "\nVariable configuration for report naming:")
 		fmt.Fprintln(os.Stdout, "Available variables:")
 
@@ -110,14 +127,20 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		for _, k := range keys {
 			fmt.Fprintf(os.Stdout, "  {%s}: %s\n", k, vars[k])
 		}
-		fmt.Fprintln(os.Stdout, "\nExample: Informe_LAB_{lab_number}_{members_abbr_list}")
+		fmt.Fprintln(os.Stdout, "\nExample: LAB_{lab_number}_{members_abbr_list}")
 
-		var input string
 		form := huh.NewForm(huh.NewGroup(
 			huh.NewInput().
-				Title("Enter the name template (no extension)").
-				Placeholder("Informe_LAB_{lab_number}").
+				Title("Enter the base name template (no extension)").
+				Placeholder("LAB_{lab_number}").
+				Suggestions([]string{"LAB_{lab_number}", "LAB_{lab_number}_{members_abbr_list}"}).
 				Value(&input),
+			huh.NewInput().
+				Title("Word for the report file").
+				Value(&reportWord),
+			huh.NewInput().
+				Title("Word for the source code file").
+				Value(&codeWord),
 		))
 		if err := form.Run(); err != nil {
 			return err
@@ -125,14 +148,22 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 
 		input = strings.TrimSpace(input)
 		if input == "" {
-			input = "Informe_LAB_{lab_number}"
+			input = "LAB_{lab_number}"
+		}
+		reportWord = strings.TrimSpace(reportWord)
+		if reportWord == "" {
+			reportWord = "Informe"
+		}
+		codeWord = strings.TrimSpace(codeWord)
+		if codeWord == "" {
+			codeWord = "Código Fuente"
 		}
 
-		preview := applyTemplate(input, vars)
+		previewName := applyTemplate(input, vars)
 		var keep bool
 		confirm := huh.NewForm(huh.NewGroup(
 			huh.NewConfirm().
-				Title(fmt.Sprintf("Preview: %s.pdf", preview)).
+				Title(fmt.Sprintf("Preview: %s_%s.pdf | %s_%s.zip", reportWord, previewName, codeWord, previewName)).
 				Value(&keep),
 		))
 		if err := confirm.Run(); err != nil {
@@ -140,10 +171,14 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		}
 		if keep {
 			template = input
-			if err := WriteFileAtomic(templatePath, []byte(template+"\n"), 0o644); err != nil {
+			cfg.SubmissionTemplate = template
+			cfg.ReportWord = reportWord
+			cfg.CodeWord = codeWord
+			if err := WriteConfig(cwd, cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stdout, "Template saved to %s\n", templatePath)
+			fmt.Fprintf(os.Stdout, "Configuration saved to labreport.json\n")
+			opt.configure = false // Break the loop
 		}
 	}
 
@@ -171,8 +206,8 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 		return err
 	}
 
-	reportFile := generatedName + ".pdf"
-	codeFile := generatedName + ".zip"
+	reportFile := fmt.Sprintf("%s_%s.pdf", cfg.ReportWord, generatedName)
+	codeFile := fmt.Sprintf("%s_%s.zip", cfg.CodeWord, generatedName)
 
 	if err := CopyFile(reportPDF, filepath.Join(submissionDir, reportFile), 0o644); err != nil {
 		return err

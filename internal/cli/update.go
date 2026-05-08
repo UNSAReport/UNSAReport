@@ -30,7 +30,12 @@ func newUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an existing template installation",
+		Long: `Update the currently installed template files.
+Compares the local files against the latest repository versions and prompts for updates line-by-line.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return cmd.Help()
+			}
 			return runUpdate(cmd.Context(), opt)
 		},
 	}
@@ -75,12 +80,12 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 	if ok {
 		isMulti = isMulti || cfg.MultiLab
 	} else {
-		// Mimic old behavior: create default config and ask user to re-run.
 		defaultCfg := LabReportConfig{MultiLab: isMulti}
 		if err := WriteConfig(destDir, defaultCfg); err != nil {
 			return err
 		}
-		return fmt.Errorf("labreport.json not found. Created default config; please verify and run update again")
+		cfg = defaultCfg
+		fmt.Fprintln(os.Stdout, "labreport.json not found. Created default config.")
 	}
 
 	owner, repo, err := templates.ParseRepo(opt.repo)
@@ -118,15 +123,6 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 
 	if err := maybeRemoveLegacyScripts(destDir, opt.force); err != nil {
 		return err
-	}
-
-	// .prepare.config is user-owned; ensure it exists but never update it from remote templates.
-	prepareCfg := filepath.Join(destDir, ".prepare.config")
-	if !FileExists(prepareCfg) {
-		if err := WriteFileAtomic(prepareCfg, []byte(""), 0o644); err != nil {
-			return err
-		}
-		fmt.Fprintln(os.Stdout, "Created: .prepare.config")
 	}
 
 	entries := buildUpdateEntries(m, isMulti, destDir)

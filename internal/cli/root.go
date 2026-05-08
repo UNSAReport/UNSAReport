@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/christianmz565/lab-report/internal/dependencies"
@@ -37,6 +36,6 @@ func init() {
 	)
 
 	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return fmt.Errorf("no command provided (try --help)")
+		return cmd.Help()
 	}
 }

@@ -8,7 +8,10 @@ import (
 )
 
 type LabReportConfig struct {
-	MultiLab bool `json:"multiLab"`
+	MultiLab           bool   `json:"multiLab"`
+	SubmissionTemplate string `json:"submissionTemplate,omitempty"`
+	ReportWord         string `json:"reportWord,omitempty"`
+	CodeWord           string `json:"codeWord,omitempty"`
 }
 
 func ReadConfig(destDir string) (cfg LabReportConfig, ok bool, err error) {

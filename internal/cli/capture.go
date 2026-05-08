@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/christianmz565/lab-report/internal/capture"
-	"github.com/christianmz565/lab-report/internal/svg"
 	"github.com/spf13/cobra"
 )
 
@@ -26,8 +25,20 @@ func newCaptureCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "capture [flags] <output-file> <command> [ms:input]...",
 		Short: "Capture terminal output and render it to a PNG via freeze",
-		Args:  cobra.MinimumNArgs(2),
+		Long: `Capture terminal output and render it to a PNG.
+
+Arguments:
+  <output-file>  The base name of the generated file (e.g., 'img/demo'). Output will be '<output-file>.png'.
+  <command>      The shell command to run and capture.
+  [ms:input]     Optional. Simulate user input typed into the terminal.
+                 Format is delay_in_ms:text. Example: 500:hello 1000:\n
+
+Example:
+  lab-report capture img/demo "python script.py" 500:name 1000:\n`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 2 {
+				return cmd.Help()
+			}
 			return runCapture(cmd.Context(), opt, args)
 		},
 	}
@@ -102,12 +113,11 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 
 	fmt.Fprintf(os.Stdout, "Generating %s.png...\n", outputFile)
 
-	svgPath := outputFile + ".svg"
 	pngPath := outputFile + ".png"
 
 	freezeCmd := exec.CommandContext(ctx, "freeze",
 		"--width", "1000",
-		"--output", svgPath,
+		"--output", pngPath,
 		"--language", "ansi",
 		"-c", "user",
 	)
@@ -118,12 +128,6 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 		return fmt.Errorf("freeze command failed: %w", err)
 	}
 
-	// Convert SVG to PNG using canvas library
-	if err := svg.ConvertSVGToPNG(svgPath, pngPath, 300); err != nil {
-		return fmt.Errorf("SVG to PNG conversion failed: %w", err)
-	}
-
-	_ = os.Remove(svgPath)
 	fmt.Fprintln(os.Stdout, "Success!")
 	return nil
 }
