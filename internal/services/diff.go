@@ -24,6 +24,7 @@ func UnifiedLineDiff(oldText, newText string) string {
 		}
 
 		for line := range strings.SplitSeq(d.Text, "\n") {
+			line = strings.TrimRight(line, "\r")
 			if line == "" {
 				continue
 			}

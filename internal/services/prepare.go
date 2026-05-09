@@ -179,7 +179,7 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 
 	input := pctx.cfg.Submission.Template
 	if input == "" {
-		input = "{outputType}_{lab_number}"
+		input = "{output_type}_{lab_number}"
 	}
 
 	for {
@@ -190,20 +190,20 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 		for k := range vars {
 			keys = append(keys, k)
 		}
-		keys = append(keys, "outputType")
+		keys = append(keys, "output_type")
 		for _, k := range keys {
 			desc := vars[k]
-			if k == "outputType" {
+			if k == "output_type" {
 				desc = "Deliverable type (e.g., Informe or Código Fuente)"
 			}
 			fmt.Fprintf(os.Stdout, "  {%s}: %s\n", k, desc)
 		}
-		fmt.Fprintln(os.Stdout, "\nExample: {outputType}_{lab_number}_{members_abbr_list}")
+		fmt.Fprintln(os.Stdout, "\nExample: {output_type}_{lab_number}_{members_abbr_list}")
 
 		form := huh.NewForm(huh.NewGroup(
 			huh.NewInput().
 				Title("Enter the base name template (no extension)").
-				Placeholder("{outputType}_{lab_number}").
+				Placeholder("{output_type}_{lab_number}").
 				SuggestionsFunc(func() []string {
 					suggestions := make([]string, 0)
 					lastBrace := strings.LastIndex(input, "{")
@@ -213,7 +213,7 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 							suggestions = append(suggestions, prefix+k+"}")
 						}
 					} else {
-						suggestions = []string{"{outputType}_{lab_number}", "{outputType}_{lab_number}_{members_abbr_list}"}
+						suggestions = []string{"{output_type}_{lab_number}", "{output_type}_{lab_number}_{members_abbr_list}"}
 					}
 					return suggestions
 				}, &input).
@@ -231,7 +231,7 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 
 		input = strings.TrimSpace(input)
 		if input == "" {
-			input = "{outputType}_{lab_number}"
+			input = "{output_type}_{lab_number}"
 		}
 		reportWord = strings.TrimSpace(reportWord)
 		if reportWord == "" {
