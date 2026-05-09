@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/christianmz565/lab-report/internal/dependencies"
 )
 
 type Adapter struct{}
@@ -24,6 +26,10 @@ type queryItem struct {
 }
 
 func (a *Adapter) QueryVars(ctx context.Context, reportPath string) (map[string]string, error) {
+	if err := dependencies.Check(dependencies.Typst); err != nil {
+		return nil, err
+	}
+
 	args := []string{"query", "--root", ".", reportPath, "<var_export>"}
 
 	cmd := exec.CommandContext(ctx, "typst", args...)
@@ -64,6 +70,10 @@ func (a *Adapter) QueryVars(ctx context.Context, reportPath string) (map[string]
 }
 
 func (a *Adapter) Compile(ctx context.Context, reportPath, reportPDF, title string) error {
+	if err := dependencies.Check(dependencies.Typst); err != nil {
+		return err
+	}
+
 	args := []string{"compile", "--root", ".", "--input", fmt.Sprintf("title=%s", title), reportPath, reportPDF}
 
 	cmd := exec.CommandContext(ctx, "typst", args...)

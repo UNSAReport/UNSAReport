@@ -7,7 +7,7 @@ This repository provides:
 
 ## Requirements
 
-The CLI validates these external tools on startup:
+The CLI validates these external lazily at runtime:
 
 - `typst`
 - `vhs` (charmbracelet/vhs)
@@ -64,14 +64,34 @@ cd /path/to/labs
 lab-report prepare l1
 ```
 
+or
+
+```bash
+cd /path/to/lab/01
+lab-report prepare
+```
+
 Use `--configure` to re-run the PDF naming template prompt.
 
 ## Capture terminal output
 
-Thanks to the incredible [charmbracelet/vhs](https://github.com/charmbracelet/vhs) project, terminal output capture is fully scriptable using `.tape` files!
+Thanks to the incredible [charmbracelet/vhs](https://github.com/charmbracelet/vhs) project, terminal output capture is fully scriptable.
+
+You can use the **oneshot mode** to generate a capture directly from arguments:
 
 ```bash
-lab-report capture template.tape
+lab-report capture --cwd my-project output.png "python script.py" "tape:Ctrl+D"
 ```
 
-The tool will automatically create a default `config.tape` and `template.tape` if they are missing.
+In oneshot mode:
+- The `capture` command takes a result image path (`output.png`) followed by terminal instructions.
+- `--cwd` automatically navigates to a directory before executing your instructions.
+- Text without a prefix is typed automatically (`Type "<text>"; Enter; Sleep 2`).
+- Text starting with `tape:` is interpreted directly as VHS instructions (e.g. `tape:Ctrl+D`, `tape:Sleep 5s`). You can escape it with `\tape:`.
+- If a `config.tape` file is present in the working directory, it will automatically be sourced.
+
+Alternatively, you can run a `.tape` script file directly using the `--tape` flag:
+
+```bash
+lab-report capture --tape template.tape
+```

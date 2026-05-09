@@ -3,6 +3,9 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"sort"
+	"strings"
 )
 
 type EntryKind string
@@ -41,4 +44,36 @@ func LoadManifest(files map[string][]byte) (*Manifest, error) {
 		return nil, err
 	}
 	return &m, nil
+}
+
+func ExpandDirEntries(remote map[string][]byte, entries []Entry) []Entry {
+	out := make([]Entry, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, e)
+		if e.Kind != KindDir || strings.TrimSpace(e.Src) == "" {
+			continue
+		}
+
+		prefix := strings.TrimSuffix(e.Src, "/") + "/"
+		paths := make([]string, 0)
+		for p := range remote {
+			if strings.HasPrefix(p, prefix) {
+				paths = append(paths, p)
+			}
+		}
+		sort.Strings(paths)
+
+		for _, p := range paths {
+			rel := strings.TrimPrefix(p, prefix)
+			if rel == "" {
+				continue
+			}
+			out = append(out, Entry{
+				Kind: KindFile,
+				Src:  p,
+				Dest: filepath.ToSlash(filepath.Join(e.Dest, rel)),
+			})
+		}
+	}
+	return out
 }

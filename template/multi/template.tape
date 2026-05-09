@@ -1,12 +1,13 @@
 Source config.tape
 
-Hide
 Type "cd l1"
 Enter
-Show
+Type "clear"
+Enter
 
 Type "echo 'Hello from Lab 1!'"
 Enter
-Sleep 1s
+Sleep 2s
 
 Screenshot output.png
+Sleep 1s

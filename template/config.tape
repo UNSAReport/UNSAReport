@@ -1,2 +1,2 @@
 Set Width 1000
-Set TypingSpeed 0.1
+Set TypingSpeed 0

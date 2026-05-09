@@ -9,17 +9,23 @@ import (
 )
 
 func newCaptureCmd() *cobra.Command {
+	var tapeFile string
+	var cwdFlag string
+
 	cmd := &cobra.Command{
-		Use:   "capture <tape-file>",
+		Use:   "capture [flags] <result.png> [instructions...]",
 		Short: "Capture terminal output and render it to a PNG via vhs",
 		Long: `Capture terminal output and render it to a PNG using charmbracelet/vhs.
 
-This command takes a .tape script file as input, executes it in a virtual terminal,
-and saves the result (usually as a PNG screenshot).`,
-		Example: `  # Capture output using a tape file
-  lab-report capture template.tape`,
+This command can be used in oneshot mode by passing the result PNG path and a list
+of instructions, or by providing a specific .tape file via the --tape flag.`,
+		Example: `  # Oneshot mode
+  lab-report capture --cwd my_dir result.png "python" "print('hello')" "tape:Ctrl+D"
+
+  # Run a tape file directly
+  lab-report capture --tape template.tape`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
+			if tapeFile == "" && len(args) < 1 {
 				return cmd.Help()
 			}
 
@@ -28,9 +34,12 @@ and saves the result (usually as a PNG screenshot).`,
 			cfg := config.New()
 
 			svc := services.NewCaptureService(renderer, fs, cfg)
-			return svc.Execute(cmd.Context(), args[0])
+			return svc.Execute(cmd.Context(), tapeFile, cwdFlag, args)
 		},
 	}
+
+	cmd.Flags().StringVarP(&tapeFile, "tape", "t", "", "Path to a specific .tape file to run")
+	cmd.Flags().StringVar(&cwdFlag, "cwd", "", "Directory to cd into at the start of the capture")
 
 	return cmd
 }

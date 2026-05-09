@@ -70,7 +70,8 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
 
 	if opt.Multi {
-		if err := s.applyEntriesInstall(files, destDir, m.Multi.Root); err != nil {
+		rootEntries := ExpandDirEntries(files, m.Multi.Root)
+		if err := s.applyEntriesInstall(files, destDir, rootEntries); err != nil {
 			return err
 		}
 		if err := s.applyEntryInstall(files, destDir, m.Multi.Readme); err != nil {
@@ -79,11 +80,13 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 
 		lab := "l1"
 		labEntries := substituteLab(m.Multi.LabFiles, lab)
-		if err := s.applyEntriesInstall(files, destDir, labEntries); err != nil {
+		labEntriesExpanded := ExpandDirEntries(files, labEntries)
+		if err := s.applyEntriesInstall(files, destDir, labEntriesExpanded); err != nil {
 			return err
 		}
 	} else {
-		if err := s.applyEntriesInstall(files, destDir, append(m.Common, m.Single...)); err != nil {
+		allEntries := ExpandDirEntries(files, append(m.Common, m.Single...))
+		if err := s.applyEntriesInstall(files, destDir, allEntries); err != nil {
 			return err
 		}
 	}
@@ -155,7 +158,7 @@ func (s *InstallService) nextSteps(multi bool) []string {
 			"1. Edit l1/report.typ with your lab information",
 			"2. Place your source code in l1/src/",
 			"3. Compile the report:",
-			"   lab-report prepare",
+			"   lab-report prepare l1",
 		}
 	}
 	return []string{

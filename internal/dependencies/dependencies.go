@@ -3,7 +3,6 @@ package dependencies
 import (
 	"fmt"
 	"os/exec"
-	"strings"
 )
 
 type Tool struct {
@@ -11,31 +10,16 @@ type Tool struct {
 	Description string
 }
 
-var Required = []Tool{
-	{Name: "typst", Description: "Typst compiler"},
-	{Name: "vhs", Description: "charmbracelet/vhs (terminal capture renderer)"},
-}
+var (
+	Typst = Tool{Name: "typst", Description: "Typst compiler"}
+	VHS   = Tool{Name: "vhs", Description: "charmbracelet/vhs (terminal capture renderer)"}
+)
 
-func Missing() []Tool {
-	missing := make([]Tool, 0)
-	for _, tool := range Required {
-		if _, err := exec.LookPath(tool.Name); err != nil {
-			missing = append(missing, tool)
-		}
-	}
-	return missing
-}
+var Required = []Tool{Typst, VHS}
 
-func CheckAll() error {
-	missing := Missing()
-	if len(missing) == 0 {
-		return nil
+func Check(tool Tool) error {
+	if _, err := exec.LookPath(tool.Name); err != nil {
+		return fmt.Errorf("missing required external tool on PATH: %s (%s)", tool.Name, tool.Description)
 	}
-
-	var b strings.Builder
-	b.WriteString("missing required external tools on PATH:\n")
-	for _, m := range missing {
-		fmt.Fprintf(&b, "  - %s (%s)\n", m.Name, m.Description)
-	}
-	return fmt.Errorf("%s", b.String())
+	return nil
 }

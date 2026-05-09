@@ -3,7 +3,6 @@ package cmd
 import (
 	"os"
 
-	"github.com/christianmz565/lab-report/internal/dependencies"
 	"github.com/spf13/cobra"
 )
 
@@ -15,9 +14,6 @@ It helps you scaffold new projects, update template files, capture terminal outp
 and compile everything into a submission-ready PDF and source code bundle.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return dependencies.CheckAll()
-	},
 }
 
 func Execute() {

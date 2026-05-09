@@ -104,7 +104,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	fmt.Fprintf(os.Stdout, "Checking for updates in: %s\n\n", destDir)
 
 	entries := s.buildUpdateEntries(m, isMulti, destDir)
-	entries = s.expandDirEntries(remoteFiles, entries)
+	entries = ExpandDirEntries(remoteFiles, entries)
 	applied := 0
 	autoAcceptAll := opt.Force
 
@@ -225,38 +225,6 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir st
 		final = append(final, seen[k])
 	}
 	return final
-}
-
-func (s *UpdateService) expandDirEntries(remote map[string][]byte, entries []Entry) []Entry {
-	out := make([]Entry, 0, len(entries))
-	for _, e := range entries {
-		out = append(out, e)
-		if e.Kind != KindDir || strings.TrimSpace(e.Src) == "" {
-			continue
-		}
-
-		prefix := strings.TrimSuffix(e.Src, "/") + "/"
-		paths := make([]string, 0)
-		for p := range remote {
-			if strings.HasPrefix(p, prefix) {
-				paths = append(paths, p)
-			}
-		}
-		sort.Strings(paths)
-
-		for _, p := range paths {
-			rel := strings.TrimPrefix(p, prefix)
-			if rel == "" {
-				continue
-			}
-			out = append(out, Entry{
-				Kind: KindFile,
-				Src:  p,
-				Dest: filepath.ToSlash(filepath.Join(e.Dest, rel)),
-			})
-		}
-	}
-	return out
 }
 
 func (s *UpdateService) detectLabDirs(destDir string) []string {

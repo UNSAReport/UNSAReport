@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/christianmz565/lab-report/internal/ports"
 )
@@ -22,7 +24,7 @@ func NewCaptureService(r ports.Renderer, fs ports.FileSystem, c ports.ConfigStor
 	}
 }
 
-func (s *CaptureService) Execute(ctx context.Context, tapeFile string) error {
+func (s *CaptureService) Execute(ctx context.Context, tapeFile, cwdFlag string, args []string) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {
 		return fmt.Errorf("get cwd: %w", err)
@@ -37,37 +39,65 @@ func (s *CaptureService) Execute(ctx context.Context, tapeFile string) error {
 		return fmt.Errorf("chdir to project root: %w", err)
 	}
 
-	configTapePath := "config.tape"
-	if !s.FS.FileExists(configTapePath) {
-		configTapeContent := "Set Width 1000\nSet TypingSpeed 0.1\n"
-		if err := s.FS.WriteFileAtomic(configTapePath, []byte(configTapeContent), 0644); err != nil {
-			return fmt.Errorf("write config.tape: %w", err)
+	var tapePathToRun string
+
+	if tapeFile != "" {
+		tapePathAbs := filepath.Join(cwd, tapeFile)
+		if !filepath.IsAbs(tapePathAbs) {
+			var err error
+			tapePathAbs, err = filepath.Abs(tapePathAbs)
+			if err != nil {
+				return fmt.Errorf("abs path: %w", err)
+			}
+		}
+		tapePathToRun = tapePathAbs
+	} else {
+		// Oneshot mode
+		if len(args) < 1 {
+			return fmt.Errorf("result image path is required in oneshot mode")
+		}
+		resultPath := args[0]
+		instructions := args[1:]
+
+		var b strings.Builder
+
+		if s.FS.FileExists("config.tape") {
+			b.WriteString("Source config.tape\n\n")
 		}
 
-		templateTapePath := "template.tape"
-		if !s.FS.FileExists(templateTapePath) {
-			templateContent := "Source config.tape\n\nType \"echo 'Hello from VHS!'\"\nEnter\nSleep 1s\n\nScreenshot output.png\n"
-			if err := s.FS.WriteFileAtomic(templateTapePath, []byte(templateContent), 0644); err != nil {
-				return fmt.Errorf("write template.tape: %w", err)
+		if cwdFlag != "" {
+			b.WriteString(fmt.Sprintf("Type \"cd %s\"\nEnter\nType \"clear\"\nEnter\n\n", cwdFlag))
+		}
+
+		for _, instr := range instructions {
+			if strings.HasPrefix(instr, "tape:") {
+				b.WriteString(strings.TrimPrefix(instr, "tape:") + "\n")
+			} else if strings.HasPrefix(instr, "\\tape:") {
+				b.WriteString(fmt.Sprintf("Type \"%s\"\nEnter\nSleep 2\n", strings.ReplaceAll(instr[1:], "\"", "\\\"")))
+			} else {
+				b.WriteString(fmt.Sprintf("Type \"%s\"\nEnter\nSleep 2\n", strings.ReplaceAll(instr, "\"", "\\\"")))
 			}
 		}
 
-		fmt.Println("config.tape was not found.")
-		fmt.Println("Created config.tape and template.tape with defaults in the project root.")
-		fmt.Println("Please review them and run the command again.")
-		return nil
-	}
+		b.WriteString(fmt.Sprintf("\nScreenshot %s\nSleep 1\n", resultPath))
 
-	tapePathAbs := filepath.Join(cwd, tapeFile)
-	if !filepath.IsAbs(tapePathAbs) {
-		var err error
-		tapePathAbs, err = filepath.Abs(tapePathAbs)
+		tempFile, err := os.CreateTemp("", "lab-report-capture-*.tape")
 		if err != nil {
-			return fmt.Errorf("abs path: %w", err)
+			return fmt.Errorf("create temp tape file: %w", err)
 		}
+		defer os.Remove(tempFile.Name())
+
+		if _, err := tempFile.WriteString(b.String()); err != nil {
+			return fmt.Errorf("write temp tape file: %w", err)
+		}
+		if err := tempFile.Close(); err != nil {
+			return fmt.Errorf("close temp tape file: %w", err)
+		}
+
+		tapePathToRun = tempFile.Name()
 	}
 
-	if err := s.Renderer.Render(ctx, tapePathAbs); err != nil {
+	if err := s.Renderer.Render(ctx, tapePathToRun); err != nil {
 		return fmt.Errorf("render tape: %w", err)
 	}
 

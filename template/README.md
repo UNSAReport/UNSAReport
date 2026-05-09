@@ -29,15 +29,23 @@ Reconfigure the output-name template before packaging:
 lab-report prepare --configure
 ```
 
-Capture terminal output into a PNG via a `.tape` file script:
+Capture terminal output into a PNG.
 
+**Oneshot mode:**
 ```bash
-lab-report capture template.tape
+lab-report capture output.png "python script.py" "tape:Ctrl+D"
+```
+
+**Using a tape file:**
+```bash
+lab-report capture --tape template.tape
 ```
 
 ### VHS Tape Scripting
 
-A `.tape` file consists of commands that control a virtual terminal.
+In oneshot mode, text without a prefix is automatically typed (`Type "<text>"; Enter; Sleep 2`). You can use the `tape:` prefix to use VHS directives directly.
+
+A `.tape` file (or `tape:` prefix) consists of commands that control a virtual terminal.
 
 - `Screenshot <path>.png`: Save the current frame as a PNG.
 - `Type "<string>"`: Emulate typing characters.
