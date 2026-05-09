@@ -16,13 +16,18 @@ var Required = []Tool{
 	{Name: "vhs", Description: "charmbracelet/vhs (terminal capture renderer)"},
 }
 
-func CheckAll() error {
+func Missing() []Tool {
 	missing := make([]Tool, 0)
 	for _, tool := range Required {
 		if _, err := exec.LookPath(tool.Name); err != nil {
 			missing = append(missing, tool)
 		}
 	}
+	return missing
+}
+
+func CheckAll() error {
+	missing := Missing()
 	if len(missing) == 0 {
 		return nil
 	}

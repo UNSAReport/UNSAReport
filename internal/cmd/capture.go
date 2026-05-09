@@ -20,12 +20,11 @@ func newCaptureCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "capture <tape-file>",
 		Short: "Capture terminal output and render it to a PNG via vhs",
-		Long: `Capture terminal output and render it to a PNG via vhs.
+		Long: `Capture terminal output and render it to a PNG using charmbracelet/vhs.
 
-Arguments:
-  <tape-file>  The path to the tape file (e.g., 'template.tape').
-
-Example:
+This command takes a .tape script file as input, executes it in a virtual terminal,
+and saves the result (usually as a PNG screenshot).`,
+		Example: `  # Capture output using a tape file
   lab-report capture template.tape`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
@@ -40,7 +39,7 @@ Example:
 
 func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 	tapeFile := args[0]
-	
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err

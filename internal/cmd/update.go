@@ -33,7 +33,18 @@ func newUpdateCmd() *cobra.Command {
 		Use:   "update",
 		Short: "Update an existing template installation",
 		Long: `Update the currently installed template files.
-Compares the local files against the latest repository versions and prompts for updates line-by-line.`,
+
+This command compares your local files against the latest versions in the repository.
+It prompts you to apply changes line-by-line (using a diff view) unless the --force
+flag is used.`,
+		Example: `  # Update the current project interactively
+  lab-report update
+
+  # Force update all files without prompting
+  lab-report update --force
+
+  # Update a project in a different directory
+  lab-report update --dest ./my-reports`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return cmd.Help()

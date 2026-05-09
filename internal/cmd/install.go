@@ -28,7 +28,17 @@ func newInstallCmd() *cobra.Command {
 		Use:   "install",
 		Short: "Install the template into a destination directory",
 		Long: `Install the lab report template files into a specified directory.
-Downloads the latest templates from the repository and initializes the labreport.json configuration.`,
+
+This command downloads the latest template files (Typst files, bibliography, images, etc.)
+from the repository and initializes a 'labreport.json' configuration file.`,
+		Example: `  # Install in the current directory
+  lab-report install
+
+  # Install in a specific directory
+  lab-report install --dest ./my-reports
+
+  # Install with multi-lab repository structure
+  lab-report install --multi`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return cmd.Help()

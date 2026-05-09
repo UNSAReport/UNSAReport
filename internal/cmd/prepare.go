@@ -34,10 +34,17 @@ func newPrepareCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "prepare [lab-dir]",
 		Short: "Compile the Typst report and create the submission bundle",
-		Long: `Compile the Typst report into PDF and package the source code into a ZIP for submission.
+		Long: `Compile the Typst report into a PDF and package the source code into a ZIP bundle.
 
-Arguments:
-  [lab-dir]  Optional. Required only in multi-lab mode. Specifies the subdirectory for the specific lab (e.g., 'l1').`,
+In multi-lab mode, you must specify the lab directory (e.g., 'l1').`,
+		Example: `  # Prepare submission in a single-lab project
+  lab-report prepare
+
+  # Prepare submission for a specific lab in multi-lab mode
+  lab-report prepare l1
+
+  # Reconfigure the output naming template
+  lab-report prepare --configure`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var labDir string
 			if len(args) == 1 {

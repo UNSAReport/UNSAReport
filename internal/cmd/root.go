@@ -8,8 +8,11 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:           "lab-report",
-	Short:         "Lab report template CLI",
+	Use:   "lab-report",
+	Short: "Lab report template CLI",
+	Long: `Lab report template CLI is a tool to manage and automate lab report creation.
+It helps you scaffold new projects, update template files, capture terminal output,
+and compile everything into a submission-ready PDF and source code bundle.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

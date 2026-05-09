@@ -36,7 +36,7 @@
               uv
               typst
               tinymist
-              fontconfig
+              vhs
             ]
             ++ fonts;
 

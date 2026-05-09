@@ -72,7 +72,7 @@
             tinymist
 
             fontconfig
-            pkg-config
+            vhs
           ];
 
           buildInputs = [ pkgs.bashInteractive ];
