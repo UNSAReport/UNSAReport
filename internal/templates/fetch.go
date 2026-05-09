@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-// Files are keyed by path relative to the template root (e.g. "lib.typ").
-// Directories are not included.
 type Files map[string][]byte
 
 func Fetch(ctx context.Context, src Source) (Files, error) {
@@ -77,7 +75,7 @@ func Fetch(ctx context.Context, src Source) (Files, error) {
 func findTemplatePrefix(zr *zip.Reader) (string, error) {
 	for _, f := range zr.File {
 		if idx := strings.Index(f.Name, "/template/"); idx != -1 {
-			root := f.Name[:idx+1] // include trailing '/'
+			root := f.Name[:idx+1]
 			return root + "template/", nil
 		}
 	}

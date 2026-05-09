@@ -1,4 +1,3 @@
 package cmd
 
-// Version is overridden at build time via -ldflags.
-var Version = "dev"
+var Version = "1.0.0"

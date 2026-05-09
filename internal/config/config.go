@@ -13,16 +13,9 @@ type SubmissionConfig struct {
 	CodeWord   string `json:"codeWord,omitempty"`
 }
 
-type CaptureConfig struct {
-	Prompt      string            `json:"prompt,omitempty"`
-	Colors      map[string]string `json:"colors,omitempty"`
-	FreezeFlags []string          `json:"freezeFlags,omitempty"`
-}
-
 type LabReportConfig struct {
 	MultiLab   bool             `json:"multiLab"`
-	Submission SubmissionConfig `json:"submission,omitempty"`
-	Capture    CaptureConfig    `json:"capture,omitempty"`
+	Submission SubmissionConfig `json:"submission"`
 }
 
 func FindProjectRoot(startDir string) (projectRoot string, cfg LabReportConfig, ok bool, err error) {
@@ -43,7 +36,7 @@ func FindProjectRoot(startDir string) (projectRoot string, cfg LabReportConfig, 
 
 func ReadConfig(destDir string) (cfg LabReportConfig, ok bool, err error) {
 	path := filepath.Join(destDir, "labreport.json")
-	cfg = DefaultConfig() // Start with defaults
+	cfg = DefaultConfig()
 	b, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -68,15 +61,5 @@ func WriteConfig(destDir string, cfg LabReportConfig) error {
 }
 
 func DefaultConfig() LabReportConfig {
-	return LabReportConfig{
-		Capture: CaptureConfig{
-			Prompt: "❯ ",
-			Colors: map[string]string{
-				"prompt":  "38;5;114",
-				"command": "38;5;111",
-				"args":    "38;5;217",
-				"reset":   "0",
-			},
-		},
-	}
+	return LabReportConfig{}
 }

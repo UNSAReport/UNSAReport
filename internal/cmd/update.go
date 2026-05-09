@@ -21,7 +21,6 @@ import (
 type updateOptions struct {
 	dest  string
 	force bool
-	multi bool
 	repo  string
 	ref   string
 }
@@ -55,7 +54,6 @@ flag is used.`,
 
 	cmd.Flags().StringVar(&opt.dest, "dest", "", "Destination directory (default: current working directory)")
 	cmd.Flags().BoolVarP(&opt.force, "force", "f", false, "Apply all updates without prompting")
-	cmd.Flags().BoolVar(&opt.multi, "multi", false, "Force multi-lab update mode")
 	cmd.Flags().StringVar(&opt.repo, "repo", "christianmz565/lab-report", "GitHub repo to fetch templates from (owner/repo)")
 	cmd.Flags().StringVar(&opt.ref, "ref", "main", "Git ref to fetch templates from")
 
@@ -86,12 +84,11 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 	projectRoot, cfg, ok, err := config.FindProjectRoot(destDir)
 	if err != nil {
 		fmt.Fprintln(os.Stdout, err.Error())
-		// keep going; we'll fall back to flags
 	}
 
-	isMulti := opt.multi
+	isMulti := false
 	if ok {
-		isMulti = isMulti || cfg.MultiLab
+		isMulti = cfg.MultiLab
 		destDir = projectRoot
 	} else {
 		defaultCfg := config.LabReportConfig{MultiLab: isMulti}
@@ -107,34 +104,35 @@ func runUpdate(ctx context.Context, opt updateOptions) error {
 		return err
 	}
 
-	owner, repo, err := templates.ParseRepo(opt.repo)
-	if err != nil {
-		return err
-	}
-	src := templates.Source{Owner: owner, Repo: repo, Ref: opt.ref}
-
-	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel()
-
-	remoteFiles, err := templates.Fetch(ctx, src)
-	if err != nil {
-		// Dev/offline fallback: if running from the repo, use ./template.
-		if local, lerr := templates.LoadFromDir("template"); lerr == nil {
-			remoteFiles = local
-		} else {
-			return err
-		}
-	}
-	m, err := templates.LoadManifest(remoteFiles)
-	if err != nil {
-		// Dev/offline fallback if the remote repo hasn't been updated yet.
-		if local, lerr := templates.LoadFromDir("template"); lerr == nil {
-			remoteFiles = local
-			m, err = templates.LoadManifest(remoteFiles)
-		}
+	var remoteFiles templates.Files
+	if info, err := os.Stat(opt.repo); err == nil && info.IsDir() {
+		remoteFiles, err = templates.LoadFromDir(opt.repo)
 		if err != nil {
 			return err
 		}
+	} else {
+		owner, repo, err := templates.ParseRepo(opt.repo)
+		if err != nil {
+			return err
+		}
+		src := templates.Source{Owner: owner, Repo: repo, Ref: opt.ref}
+
+		ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+		defer cancel()
+
+		remoteFiles, err = templates.Fetch(ctx, src)
+		if err != nil {
+			if local, lerr := templates.LoadFromDir("template"); lerr == nil {
+				remoteFiles = local
+			} else {
+				return err
+			}
+		}
+	}
+
+	m, err := templates.LoadManifest(remoteFiles)
+	if err != nil {
+		return err
 	}
 
 	fmt.Fprintf(os.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti])
@@ -246,7 +244,6 @@ func buildUpdateEntries(m *templates.Manifest, isMulti bool, destDir string) []t
 		add(append(m.Common, m.Single...))
 	}
 
-	// Dedup by destination path (last write wins).
 	seen := map[string]templates.Entry{}
 	for _, e := range out {
 		seen[e.Dest] = e

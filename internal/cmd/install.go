@@ -174,7 +174,6 @@ func applyEntryInstall(files templates.Files, destDir string, e templates.Entry)
 		if err := fsutil.EnsureDir(dstPath); err != nil {
 			return err
 		}
-		// Copy any files under the directory if present in the remote template.
 		srcPrefix := strings.TrimSuffix(e.Src, "/") + "/"
 		for path, data := range files {
 			if !strings.HasPrefix(path, srcPrefix) {
@@ -198,7 +197,6 @@ func applyEntryInstall(files templates.Files, destDir string, e templates.Entry)
 	case templates.KindFile:
 		data, ok := files[e.Src]
 		if !ok {
-			// For local-only files (like .prepare.config), create an empty file.
 			if strings.HasPrefix(e.Src, ".") {
 				if fsutil.FileExists(dstPath) {
 					fmt.Fprintf(os.Stdout, "Skipped: %s (already exists)\n", e.Dest)

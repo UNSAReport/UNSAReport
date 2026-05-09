@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -118,7 +117,7 @@ func promptConfiguration(pctx *prepareContext, vars map[string]string) error {
 		for k := range vars {
 			keys = append(keys, k)
 		}
-		keys = append(keys, "outputType") // Explicitly add outputType
+		keys = append(keys, "outputType")
 		sort.Strings(keys)
 		for _, k := range keys {
 			desc := vars[k]
@@ -224,9 +223,6 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 	if !fsutil.FileExists(reportPath) {
 		return fmt.Errorf("report file not found: %s", reportPath)
 	}
-
-	// Quick check for typst
-	_ = exec.Command("typst", "--version").Run()
 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()

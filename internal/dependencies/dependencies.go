@@ -37,6 +37,5 @@ func CheckAll() error {
 	for _, m := range missing {
 		fmt.Fprintf(&b, "  - %s (%s)\n", m.Name, m.Description)
 	}
-	b.WriteString("\nHint: install them (or use the provided Nix flake dev shell).\n")
 	return fmt.Errorf("%s", b.String())
 }

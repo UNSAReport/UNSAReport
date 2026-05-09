@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-// LoadFromDir loads template files from a local directory on disk.
-// Keys are relative paths using forward slashes.
 func LoadFromDir(dir string) (Files, error) {
 	out := make(Files)
 	abs, err := filepath.Abs(dir)
@@ -46,7 +44,6 @@ func LoadFromDir(dir string) (Files, error) {
 		return nil, err
 	}
 
-	// Ensure keys look like the remote zip (no leading ./)
 	clean := make(Files)
 	for k, v := range out {
 		clean[strings.TrimPrefix(k, "./")] = v

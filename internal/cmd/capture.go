@@ -46,9 +46,6 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 	}
 
 	projectRoot, _, ok, err := config.FindProjectRoot(cwd)
-	if err != nil {
-		// Ignore error, use defaults
-	}
 	if !ok {
 		projectRoot = cwd
 	}
@@ -83,7 +80,6 @@ func runCapture(ctx context.Context, opt captureOptions, args []string) error {
 		return err
 	}
 
-	// We are now in projectRoot, and we need to pass the absolute path of the tape file to vhs
 	vhsCmd := exec.CommandContext(ctx, "vhs", tapePathAbs)
 	vhsCmd.Stdin = os.Stdin
 	vhsCmd.Stdout = os.Stdout
