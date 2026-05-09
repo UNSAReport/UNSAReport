@@ -1,4 +1,4 @@
-package templates
+package services
 
 import (
 	"encoding/json"
@@ -31,7 +31,7 @@ type Manifest struct {
 	Multi  MultiSection `json:"multi"`
 }
 
-func LoadManifest(files Files) (*Manifest, error) {
+func LoadManifest(files map[string][]byte) (*Manifest, error) {
 	data, ok := files["manifest.json"]
 	if !ok {
 		return nil, fmt.Errorf("template manifest.json not found")

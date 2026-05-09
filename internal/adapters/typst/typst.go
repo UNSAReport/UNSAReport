@@ -1,4 +1,4 @@
-package prepare
+package typst
 
 import (
 	"bytes"
@@ -10,6 +10,12 @@ import (
 	"strings"
 )
 
+type Adapter struct{}
+
+func New() *Adapter {
+	return &Adapter{}
+}
+
 type queryItem struct {
 	Value *struct {
 		Name  string `json:"name"`
@@ -17,9 +23,8 @@ type queryItem struct {
 	} `json:"value"`
 }
 
-func QueryVars(ctx context.Context, reportPath string) (map[string]string, error) {
-	args := []string{"query", "--root", "."}
-	args = append(args, reportPath, "<var_export>")
+func (a *Adapter) QueryVars(ctx context.Context, reportPath string) (map[string]string, error) {
+	args := []string{"query", "--root", ".", reportPath, "<var_export>"}
 
 	cmd := exec.CommandContext(ctx, "typst", args...)
 	var stdout, stderr bytes.Buffer
@@ -58,12 +63,14 @@ func QueryVars(ctx context.Context, reportPath string) (map[string]string, error
 	return vars, nil
 }
 
-func Compile(ctx context.Context, reportPath, reportPDF, title string) error {
-	args := []string{"compile", "--root", "."}
-	args = append(args, "--input", fmt.Sprintf("title=%s", title), reportPath, reportPDF)
+func (a *Adapter) Compile(ctx context.Context, reportPath, reportPDF, title string) error {
+	args := []string{"compile", "--root", ".", "--input", fmt.Sprintf("title=%s", title), reportPath, reportPDF}
 
 	cmd := exec.CommandContext(ctx, "typst", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("typst compile failed: %w", err)
+	}
+	return nil
 }

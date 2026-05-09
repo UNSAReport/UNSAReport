@@ -1,4 +1,4 @@
-package naming
+package services
 
 import (
 	"regexp"

@@ -1,4 +1,4 @@
-package prepare
+package zipper
 
 import (
 	"archive/zip"
@@ -12,25 +12,31 @@ import (
 
 var ErrSourceMissing = errors.New("source directory not found")
 
-func ZipDir(zipPath, srcDir string) error {
+type Adapter struct{}
+
+func New() *Adapter {
+	return &Adapter{}
+}
+
+func (a *Adapter) ArchiveDir(zipPath, srcDir string) error {
 	st, err := os.Stat(srcDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return ErrSourceMissing
 		}
-		return err
+		return fmt.Errorf("stat source dir: %w", err)
 	}
 	if !st.IsDir() {
 		return fmt.Errorf("%s is not a directory", srcDir)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(zipPath), 0o755); err != nil {
-		return err
+		return fmt.Errorf("mkdir for zip: %w", err)
 	}
 
 	out, err := os.Create(zipPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("create zip file: %w", err)
 	}
 	defer out.Close()
 

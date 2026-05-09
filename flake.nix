@@ -39,8 +39,22 @@
 
           vendorHash = "sha256-xVriwYwOc3bFMLWFIYJ4419WvAQtEU7AKV8TSgfZtco=";
 
-          nativeBuildInputs = [ pkgs.pkg-config ];
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.makeWrapper
+          ];
+
           buildInputs = [ pkgs.fontconfig ];
+
+          postInstall = ''
+            wrapProgram $out/bin/lab-report \
+              --prefix PATH : ${
+                pkgs.lib.makeBinPath [
+                  pkgs.typst
+                  pkgs.vhs
+                ]
+              }
+          '';
 
           ldflags = [
             "-s"
@@ -54,7 +68,6 @@
             platforms = platforms.unix ++ platforms.darwin ++ platforms.windows;
           };
         };
-
         apps.default = flake-utils.lib.mkApp {
           drv = self.packages.${system}.default;
         };
