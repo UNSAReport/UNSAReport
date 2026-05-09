@@ -76,7 +76,7 @@ Compile the report and create the submission bundle for a specific lab (e.g., `l
 lab-report prepare l1
 ```
 
-Capture terminal output into a PNG:
+Capture terminal output into a PNG (you'll also get an .ascii file with the raw output under capture_logs when using oneshot mode):
 ```bash
 lab-report capture output.png "python l1/src/main.py" "tape:Ctrl+D"
 ```

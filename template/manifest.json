@@ -4,24 +4,26 @@
     { "kind": "file", "src": "flake.nix", "dest": "flake.nix" },
     { "kind": "file", "src": "bibliography.bib", "dest": "bibliography.bib" },
     { "kind": "file", "src": "README.md", "dest": "README.md" },
-    { "kind": "dir", "src": "img/fixed", "dest": "img/fixed" }
+    { "kind": "file", "src": ".gitignore", "dest": ".gitignore" },
+    { "kind": "dir", "src": "img/fixed", "dest": "img/fixed" },
+    { "kind": "file", "src": "config.tape", "dest": "config.tape" },
+    { "kind": "file", "src": "functions.typ", "dest": "functions.typ" }
   ],
   "single": [
     { "kind": "file", "src": "report.typ", "dest": "report.typ" },
     { "kind": "dir", "src": "img/lab", "dest": "img/lab" },
     { "kind": "dir", "src": "snippets", "dest": "snippets" },
     { "kind": "dir", "src": "src", "dest": "src" },
-    { "kind": "dir", "src": "guide", "dest": "guide" }
+    { "kind": "dir", "src": "guide", "dest": "guide" },
+    { "kind": "file", "src": "template.tape", "dest": "template.tape" }
   ],
   "multi": {
-    "readme": { "kind": "file", "src": "multi/README.md", "dest": "README.md" },
     "root": [
+      { "kind": "file", "src": "multi/README.md", "dest": "README.md" },
       { "kind": "dir", "src": "img/fixed", "dest": "img/fixed" },
       { "kind": "file", "src": "flake.nix", "dest": "flake.nix" },
       { "kind": "file", "src": "bibliography.bib", "dest": "bibliography.bib" },
       { "kind": "file", "src": "lib.typ", "dest": "lib.typ" },
-      { "kind": "file", "src": "functions.typ", "dest": "functions.typ" },
-      { "kind": "file", "src": "config.tape", "dest": "config.tape" },
       { "kind": "file", "src": "multi/template.tape", "dest": "template.tape" }
     ],
     "labFiles": [

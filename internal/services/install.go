@@ -70,11 +70,8 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
 
 	if opt.Multi {
-		rootEntries := ExpandDirEntries(files, m.Multi.Root)
+		rootEntries := ExpandDirEntries(files, append(m.Multi.Root, m.Common...))
 		if err := s.applyEntriesInstall(files, destDir, rootEntries); err != nil {
-			return err
-		}
-		if err := s.applyEntryInstall(files, destDir, m.Multi.Readme); err != nil {
 			return err
 		}
 

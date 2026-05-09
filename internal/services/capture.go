@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/christianmz565/lab-report/internal/ports"
 )
@@ -92,7 +93,14 @@ func (s *CaptureService) Execute(ctx context.Context, tapeFile, cwdFlag string, 
 			}
 		}
 
-		b.WriteString(fmt.Sprintf("\nScreenshot %s\nSleep 1\n", resultPath))
+		timestamp := time.Now().Format("02-01-2006_15-04-05")
+		logPath := filepath.Join("capture_logs", timestamp+".ascii")
+
+		if err := s.FS.EnsureDir("capture_logs"); err != nil {
+			return fmt.Errorf("ensure capture_logs directory: %w", err)
+		}
+
+		b.WriteString(fmt.Sprintf("\nOutput %s\nScreenshot %s\nSleep 1\n", logPath, resultPath))
 
 		tempFile, err := os.CreateTemp("", "lab-report-capture-*.tape")
 		if err != nil {

@@ -211,8 +211,7 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir st
 	}
 
 	if isMulti {
-		add(m.Multi.Root)
-		out = append(out, m.Multi.Readme)
+		add(m.Common, m.Multi.Root)
 
 		labs := s.detectLabDirs(destDir, cfg)
 		sort.Strings(labs)

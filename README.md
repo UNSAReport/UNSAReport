@@ -114,7 +114,15 @@ lab-report capture --tape report.tape
 ├── labreport.json    # Project configuration
 ├── report.typ        # Main report file
 ├── lib.typ           # Template library
+├── functions.typ     # Useful functions for config var generation
+├── config.tape       # VHS tape configuration for terminal capture
+├── template.tape     # Small snippet to showcase script mode capture
+├── README.md         # Summary file with instructions
+├── flake.nix         # Nix flake for development environment
+├── bibliography.bib  # Bibliography file for references
+├── guide/            # Lab guide and instructions
 ├── src/              # Source code directory
+├── snippets/         # Code snippets for the report directory
 ├── img/              # Image assets
 └── submission/       # Generated PDF and ZIP
 ```
@@ -124,10 +132,18 @@ lab-report capture --tape report.tape
 .
 ├── labreport.json    # Project configuration
 ├── lib.typ           # Template library
-├── img/              # Fixed image assets
+├── functions.typ     # Useful functions for config var generation
+├── config.tape       # VHS tape configuration for terminal capture
+├── template.tape     # Small snippet to showcase script mode capture
+├── README.md         # Summary file with instructions
+├── flake.nix         # Nix flake for development environment
+├── bibliography.bib  # Bibliography file for references
+├── img/fixed/        # Fixed image assets
 ├── l1/               # Lab 1 directory
 │   ├── report.typ    # Lab 1 report file
-│   ├── img/          # Lab 1 specific images
+│   ├── guide/        # Lab 1 guide and instructions
+│   ├── snippets/     # Lab 1 code snippets for the report directory
+│   ├── img/lab/      # Lab 1 specific images
 │   ├── src/          # Lab 1 source code
 │   └── submission/   # Lab 1 generated PDF and ZIP
 └── l2/

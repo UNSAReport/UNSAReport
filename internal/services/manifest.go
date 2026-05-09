@@ -23,7 +23,6 @@ type Entry struct {
 }
 
 type MultiSection struct {
-	Readme   Entry   `json:"readme"`
 	Root     []Entry `json:"root"`
 	LabFiles []Entry `json:"labFiles"`
 }

@@ -175,3 +175,5 @@ result-*
 /lab-report
 
 .direnv
+
+capture_logs/
