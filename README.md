@@ -98,7 +98,7 @@ lab-report capture --cwd ./src output.png "python script.py" "tape:Sleep 2s" "ta
 
 - Text arguments are typed into the terminal followed by `Enter`.
 - Arguments prefixed with `tape:` are interpreted as raw VHS commands.
-- If a `config.tape` file exists in the directory, it is automatically loaded.
+- If the tapeConfig (defaults to `config.tape`) file exists in the directory, it is automatically loaded.
 
 **Script Mode**: Run an existing `.tape` file.
 

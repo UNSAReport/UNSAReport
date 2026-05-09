@@ -6,7 +6,7 @@ This directory is the working template for a lab-report project.
 
 1. Ensure `typst` is installed and available in your shell (or use `nix develop`).
 2. Open `report.typ` (or your configured report filename) and fill in the lab metadata variables.
-3. Put your solution code in `src/`, screenshots in `img/lab/` and (snippets)[#code-blocks-and-snippets] in `snippets/`. (These paths default to `src/` but can be customized in `labreport.json`).
+3. Put your solution code in `src/` (or your configured source directory), screenshots in `img/lab/` and (snippets)[#code-blocks-and-snippets] in `snippets/`.
 4. Run `lab-report prepare` to compile the report and create the submission bundle in `submission/` (or your configured output directory).
 
 ## Project Configuration
