@@ -6,7 +6,7 @@ This directory is the working template for a lab-report project.
 
 1. Ensure `typst` is installed and available in your shell (or use `nix develop`).
 2. Open `report.typ` and fill in the lab metadata variables.
-3. Put your solution code in `src/` and screenshots in `img/lab/`.
+3. Put your solution code in `src/`, screenshots in `img/lab/` and (snippets)[#code-blocks-and-snippets] in `snippets/`.
 4. Run `lab-report prepare` to compile the report and create the submission bundle in `submission/`.
 
 ## Typst Template Features
@@ -51,6 +51,8 @@ You are strongly advised to configure language and prefix for snippet comments u
 #show: e.set_(code-block, lang: "python")
 #show: e.set_(code-block, prefix: "#")
 ```
+
+You are also strongly advised to follow the snippets/ and src/ conventions. All the contents of src/ are automatically included in the submission bundle.
 
 ## Required Tools
 

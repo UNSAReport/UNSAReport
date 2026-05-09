@@ -1,7 +1,4 @@
-#import "./lib.typ": (
-  code-block, get-var, header-border-color, lab-report, lab-section,
-  table-border-width,
-)
+#import "./lib.typ": code-block, get-var, header-border-color, lab-report, lab-section, table-border-width
 #import "./functions.typ": abbreviate-by-caps, summarize-name
 #import "@preview/elembic:1.1.1" as e
 
@@ -14,7 +11,7 @@
 
 // Required vars: course_name, lab_title, lab_number, instructor_name, members
 // Optional vars: year, presentation_date, course_abbr, shortnames_chain, surnames_chain, sem_code, presentation_hour, wide_lab_number
-// Anything else you can use for submission.js config
+// Anything else you can use for submission template config
 
 #define("course_name", "Ingeniería de Software")
 #define("lab_title", "Título de la Práctica")
@@ -29,7 +26,10 @@
 #context {
   define("course_abbr", abbreviate-by-caps(get-var("course_name")))
   define("shortnames_chain", get-var("members").map(name => summarize-name(name)).join("_"))
-  define("surnames_chain", get-var("members").map(name => summarize-name(name, positions: (0,), separator: "")).join("-"))
+  define(
+    "surnames_chain",
+    get-var("members").map(name => summarize-name(name, positions: (0,), separator: "")).join("-"),
+  )
   define("wide_lab_number", numbering("001", int(get-var("lab_number"))))
 }
 

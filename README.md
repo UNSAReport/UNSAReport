@@ -63,7 +63,9 @@ Use the `--force` flag to apply all updates without interactive prompts.
 
 ### Preparing Submissions
 
-The `prepare` command compiles the report and archives the source code into a `submission/` folder. It uses metadata defined in your `report.typ` to name the files according to a configurable template.
+The `prepare` command compiles the report and archives the source code into a `submission/` folder. This will generate a PDF file with the compiled report and a ZIP file containing the source code. It uses metadata defined in your `report.typ` to name the files according to a configurable template.
+
+If a `.git` directory is detected in the project root, the tool automatically filters out files in the `src` directory based on your `.gitignore` rules before creating the ZIP archive.
 
 **Single-lab project:**
 

@@ -11,7 +11,7 @@
 
 // Required vars: course_name, lab_title, lab_number, instructor_name, members
 // Optional vars: year, presentation_date, course_abbr, shortnames_chain, surnames_chain, sem_code, presentation_hour, wide_lab_number
-// Anything else you can use for submission.js config
+// Anything else you can use for submission template config
 
 #define("course_name", "Ingeniería de Software")
 #define("lab_title", "Título de la Práctica")

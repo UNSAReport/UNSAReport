@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -112,17 +113,63 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 	_ = s.FS.Remove(zipPath)
 
 	fmt.Fprintf(os.Stdout, "Archiving %s to %s...\n", srcDir, zipPath)
-	if err := s.Archiver.ArchiveDir(zipPath, srcDir); err != nil {
-		if strings.Contains(err.Error(), "source directory not found") {
-			fmt.Fprintf(os.Stdout, "Warning: %s directory not found. Skipping zip generation.\n", srcDir)
-		} else {
-			return fmt.Errorf("archive dir: %w", err)
+	files, err := s.listGitFiles(ctx, srcDir)
+	if err != nil {
+		return fmt.Errorf("list git files: %w", err)
+	}
+
+	if files != nil {
+		if err := s.Archiver.ArchiveFiles(zipPath, srcDir, files); err != nil {
+			return fmt.Errorf("archive files: %w", err)
+		}
+	} else {
+		if err := s.Archiver.ArchiveDir(zipPath, srcDir); err != nil {
+			if strings.Contains(err.Error(), "source directory not found") {
+				fmt.Fprintf(os.Stdout, "Warning: %s directory not found. Skipping zip generation.\n", srcDir)
+			} else {
+				return fmt.Errorf("archive dir: %w", err)
+			}
 		}
 	}
 
 	fmt.Fprintf(os.Stdout, "\nReport: %s\n", filepath.Join(submissionDir, reportFile))
 	fmt.Fprintf(os.Stdout, "Code:  %s\n", filepath.Join(submissionDir, codeFile))
 	return nil
+}
+
+func (s *PrepareService) listGitFiles(ctx context.Context, srcDir string) ([]string, error) {
+	if !s.FS.FileExists(".git") {
+		return nil, nil
+	}
+
+	if _, err := exec.LookPath("git"); err != nil {
+		return nil, nil
+	}
+
+	cmd := exec.CommandContext(ctx, "git", "ls-files", "--cached", "--others", "--exclude-standard", srcDir)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git ls-files: %w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	var files []string
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		rel, err := filepath.Rel(srcDir, line)
+		if err != nil {
+			continue
+		}
+		files = append(files, rel)
+	}
+
+	if len(files) == 0 && !s.FS.FileExists(srcDir) {
+		return nil, fmt.Errorf("source directory not found")
+	}
+
+	return files, nil
 }
 
 func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareContext, error) {

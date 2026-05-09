@@ -30,6 +30,29 @@ func (a *Adapter) ArchiveDir(zipPath, srcDir string) error {
 		return fmt.Errorf("%s is not a directory", srcDir)
 	}
 
+	var files []string
+	err = filepath.WalkDir(srcDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+		files = append(files, rel)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("walk dir: %w", err)
+	}
+
+	return a.ArchiveFiles(zipPath, srcDir, files)
+}
+
+func (a *Adapter) ArchiveFiles(zipPath, baseDir string, files []string) error {
 	if err := os.MkdirAll(filepath.Dir(zipPath), 0o755); err != nil {
 		return fmt.Errorf("mkdir for zip: %w", err)
 	}
@@ -43,42 +66,36 @@ func (a *Adapter) ArchiveDir(zipPath, srcDir string) error {
 	zw := zip.NewWriter(out)
 	defer zw.Close()
 
-	return filepath.WalkDir(srcDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		rel, err := filepath.Rel(srcDir, path)
-		if err != nil {
-			return err
-		}
+	for _, rel := range files {
+		path := filepath.Join(baseDir, rel)
 		rel = filepath.ToSlash(rel)
 		rel = strings.TrimPrefix(rel, "./")
 
-		fi, err := d.Info()
+		fi, err := os.Stat(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("stat %s: %w", path, err)
 		}
 		hdr, err := zip.FileInfoHeader(fi)
 		if err != nil {
-			return err
+			return fmt.Errorf("zip header for %s: %w", path, err)
 		}
 		hdr.Name = rel
 		hdr.Method = zip.Deflate
 
 		w, err := zw.CreateHeader(hdr)
 		if err != nil {
-			return err
+			return fmt.Errorf("create zip entry for %s: %w", path, err)
 		}
 		f, err := os.Open(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("open %s: %w", path, err)
 		}
-		defer f.Close()
 		_, err = io.Copy(w, f)
-		return err
-	})
+		f.Close()
+		if err != nil {
+			return fmt.Errorf("copy %s to zip: %w", path, err)
+		}
+	}
+
+	return nil
 }

@@ -52,7 +52,6 @@ func (s *CaptureService) Execute(ctx context.Context, tapeFile, cwdFlag string, 
 		}
 		tapePathToRun = tapePathAbs
 	} else {
-		// Oneshot mode
 		if len(args) < 1 {
 			return fmt.Errorf("result image path is required in oneshot mode")
 		}
