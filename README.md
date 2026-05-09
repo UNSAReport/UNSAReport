@@ -63,9 +63,9 @@ Use the `--force` flag to apply all updates without interactive prompts.
 
 ### Preparing Submissions
 
-The `prepare` command compiles the report and archives the source code into a `submission/` folder. This will generate a PDF file with the compiled report and a ZIP file containing the source code. It uses metadata defined in your `report.typ` to name the files according to a configurable template.
+The `prepare` command compiles the report and archives the source code into the output folder (defaults to `submission/`). This will generate a PDF file with the compiled report and a ZIP file containing the source code. It uses metadata defined in your report file (defaults to `report.typ`) to name the files according to a configurable template.
 
-If a `.git` directory is detected in the project root, the tool automatically filters out files in the `src` directory based on your `.gitignore` rules before creating the ZIP archive.
+If a `.git` directory is detected in the project root, the tool automatically filters out files in your source directory (defaults to `src/`) based on your `.gitignore` rules before creating the ZIP archive.
 
 **Single-lab project:**
 
@@ -134,6 +134,25 @@ lab-report capture --tape report.tape
     ├── report.typ
     └── ...
 ```
+
+## Configuration
+
+The `labreport.json` file in your project root controls the behavior of the tool:
+
+- `multiLab`: (boolean) Indicates if the project is a multi-lab setup.
+- `capture`:
+  - `tapeConfig`: (string) The VHS tape configuration file automatically loaded during capture. Defaults to `config.tape`.
+- `prepare`:
+  - `input`:
+    - `srcDir`: (string) The directory containing your source code. Defaults to `src`.
+    - `reportFile`: (string) The main Typst report filename. Defaults to `report.typ`.
+  - `output`:
+    - `submissionDir`: (string) The directory where the compiled report and zip bundle will be saved. Defaults to `submission`.
+    - `fileTemplate`: (string) Naming template for the generated PDF and ZIP files.
+    - `reportWord`: (string) Word you want to use for "Report" in filenames.
+    - `codeWord`: (string) Word you want to use for "Source Code" in filenames.
+
+These customizable paths allow you to adapt the template structure to your needs.
 
 ## License
 

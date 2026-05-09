@@ -65,7 +65,21 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		isMulti = cfg.MultiLab
 		destDir = projectRoot
 	} else {
-		defaultCfg := ports.LabReportConfig{MultiLab: isMulti}
+		defaultCfg := ports.LabReportConfig{
+			MultiLab: isMulti,
+			Prepare: ports.PrepareConfig{
+				Input: ports.PrepareInputConfig{
+					SrcDir:     "src",
+					ReportFile: "report.typ",
+				},
+				Output: ports.PrepareOutputConfig{
+					SubmissionDir: "submission",
+				},
+			},
+			Capture: ports.CaptureConfig{
+				TapeConfig: "config.tape",
+			},
+		}
 		if err := s.Config.WriteConfig(destDir, defaultCfg); err != nil {
 			return fmt.Errorf("write default config: %w", err)
 		}
@@ -103,7 +117,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	fmt.Fprintf(os.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti])
 	fmt.Fprintf(os.Stdout, "Checking for updates in: %s\n\n", destDir)
 
-	entries := s.buildUpdateEntries(m, isMulti, destDir)
+	entries := s.buildUpdateEntries(m, isMulti, destDir, cfg)
 	entries = ExpandDirEntries(remoteFiles, entries)
 	applied := 0
 	autoAcceptAll := opt.Force
@@ -188,7 +202,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	return nil
 }
 
-func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir string) []Entry {
+func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir string, cfg ports.LabReportConfig) []Entry {
 	var out []Entry
 	add := func(entries ...[]Entry) {
 		for _, list := range entries {
@@ -200,7 +214,7 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir st
 		add(m.Multi.Root)
 		out = append(out, m.Multi.Readme)
 
-		labs := s.detectLabDirs(destDir)
+		labs := s.detectLabDirs(destDir, cfg)
 		sort.Strings(labs)
 		for _, lab := range labs {
 			out = append(out, substituteLab(m.Multi.LabFiles, lab)...)
@@ -222,12 +236,25 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir st
 
 	final := make([]Entry, 0, len(keys))
 	for _, k := range keys {
-		final = append(final, seen[k])
+		e := seen[k]
+		parts := strings.Split(e.Dest, "/")
+		last := parts[len(parts)-1]
+		if last == "report.typ" {
+			parts[len(parts)-1] = cfg.Prepare.Input.ReportFile
+		} else if last == "src" {
+			parts[len(parts)-1] = cfg.Prepare.Input.SrcDir
+		} else if last == "submission" {
+			parts[len(parts)-1] = cfg.Prepare.Output.SubmissionDir
+		} else if last == "config.tape" {
+			parts[len(parts)-1] = cfg.Capture.TapeConfig
+		}
+		e.Dest = strings.Join(parts, "/")
+		final = append(final, e)
 	}
 	return final
 }
 
-func (s *UpdateService) detectLabDirs(destDir string) []string {
+func (s *UpdateService) detectLabDirs(destDir string, cfg ports.LabReportConfig) []string {
 	entries, err := s.FS.ReadDir(destDir)
 	if err != nil {
 		return nil
@@ -241,7 +268,7 @@ func (s *UpdateService) detectLabDirs(destDir string) []string {
 		if strings.HasPrefix(name, ".") || name == "node_modules" {
 			continue
 		}
-		if s.FS.FileExists(filepath.Join(destDir, name, "report.typ")) {
+		if s.FS.FileExists(filepath.Join(destDir, name, cfg.Prepare.Input.ReportFile)) {
 			labs = append(labs, name)
 		}
 	}

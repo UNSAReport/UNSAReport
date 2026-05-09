@@ -6,9 +6,18 @@ This directory is the working template for a multi-lab repository.
 
 1. Ensure `typst` is installed and available in your shell (or use `nix develop`).
 2. For each lab (e.g., `l1/`, `l2/`):
-    - Open `report.typ` in the lab directory and fill in the lab metadata variables.
-    - Put your solution code in `src/`, screenshots in `img/lab/` and (snippets)[#code-blocks-and-snippets] in `snippets/`. (within the lab directory).
+    - Open `report.typ` (or your configured report filename) in the lab directory and fill in the lab metadata variables.
+    - Put your solution code in `src/`, screenshots in `img/lab/` and (snippets)[#code-blocks-and-snippets] in `snippets/`. (within the lab directory). (These paths default to `src/` but can be customized in `labreport.json`).
 3. Run `lab-report prepare <lab-dir>` (or `lab-report prepare` from within the lab directory) to compile the report and create the submission bundle.
+
+## Project Configuration
+
+You can customize the project structure in `labreport.json`:
+
+- `prepare.input.reportFile`: Main report filename in each lab directory.
+- `prepare.input.srcDir`: Source code directory in each lab directory.
+- `prepare.output.submissionDir`: Output directory for each lab.
+- `capture.tapeConfig`: Shared or local VHS configuration file.
 
 ## Typst Template Features
 

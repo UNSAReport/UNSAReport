@@ -44,6 +44,18 @@ func (a *Adapter) ReadConfig(destDir string) (ports.LabReportConfig, bool, error
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return ports.LabReportConfig{}, true, fmt.Errorf("failed to parse labreport.json: %w", err)
 	}
+	if cfg.Prepare.Input.SrcDir == "" {
+		cfg.Prepare.Input.SrcDir = "src"
+	}
+	if cfg.Prepare.Output.SubmissionDir == "" {
+		cfg.Prepare.Output.SubmissionDir = "submission"
+	}
+	if cfg.Prepare.Input.ReportFile == "" {
+		cfg.Prepare.Input.ReportFile = "report.typ"
+	}
+	if cfg.Capture.TapeConfig == "" {
+		cfg.Capture.TapeConfig = "config.tape"
+	}
 	return cfg, true, nil
 }
 

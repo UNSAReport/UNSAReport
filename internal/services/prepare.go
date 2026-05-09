@@ -54,13 +54,13 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 		return fmt.Errorf("chdir to project root: %w", err)
 	}
 
-	reportPath := "report.typ"
-	reportPDF := "report.pdf"
-	srcDir := "src"
+	reportPath := pctx.cfg.Prepare.Input.ReportFile
+	reportPDF := strings.TrimSuffix(pctx.cfg.Prepare.Input.ReportFile, filepath.Ext(pctx.cfg.Prepare.Input.ReportFile)) + ".pdf"
+	srcDir := pctx.cfg.Prepare.Input.SrcDir
 	if pctx.isMulti {
-		reportPath = filepath.Join(pctx.labDir, "report.typ")
-		reportPDF = filepath.Join(pctx.labDir, "report.pdf")
-		srcDir = filepath.Join(pctx.labDir, "src")
+		reportPath = filepath.Join(pctx.labDir, pctx.cfg.Prepare.Input.ReportFile)
+		reportPDF = filepath.Join(pctx.labDir, strings.TrimSuffix(pctx.cfg.Prepare.Input.ReportFile, filepath.Ext(pctx.cfg.Prepare.Input.ReportFile))+".pdf")
+		srcDir = filepath.Join(pctx.labDir, pctx.cfg.Prepare.Input.SrcDir)
 	}
 
 	if !s.FS.FileExists(reportPath) {
@@ -72,38 +72,38 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 		return fmt.Errorf("query vars: %w", err)
 	}
 
-	if pctx.cfg.Submission.Template == "" || opt.Configure {
+	if pctx.cfg.Prepare.Output.FileTemplate == "" || opt.Configure {
 		if err := s.promptConfiguration(&pctx, vars); err != nil {
 			return fmt.Errorf("prompt config: %w", err)
 		}
 	}
 
-	reportWord := pctx.cfg.Submission.ReportWord
+	reportWord := pctx.cfg.Prepare.Output.ReportWord
 	if reportWord == "" {
 		reportWord = "Informe"
 	}
-	codeWord := pctx.cfg.Submission.CodeWord
+	codeWord := pctx.cfg.Prepare.Output.CodeWord
 	if codeWord == "" {
 		codeWord = "Código Fuente"
 	}
 
-	generatedReportName := ApplyTemplate(pctx.cfg.Submission.Template, vars, reportWord)
+	generatedReportName := ApplyTemplate(pctx.cfg.Prepare.Output.FileTemplate, vars, reportWord)
 
 	fmt.Fprintln(os.Stdout, "Compiling typst report...")
 	if err := s.Compiler.Compile(ctx, reportPath, reportPDF, generatedReportName); err != nil {
 		return fmt.Errorf("compile report: %w", err)
 	}
 
-	submissionDir := "submission"
+	submissionDir := pctx.cfg.Prepare.Output.SubmissionDir
 	if pctx.isMulti {
-		submissionDir = filepath.Join(pctx.labDir, "submission")
+		submissionDir = filepath.Join(pctx.labDir, pctx.cfg.Prepare.Output.SubmissionDir)
 	}
 	if err := s.FS.EnsureDir(submissionDir); err != nil {
 		return fmt.Errorf("ensure submission dir: %w", err)
 	}
 
 	reportFile := generatedReportName + ".pdf"
-	codeFile := ApplyTemplate(pctx.cfg.Submission.Template, vars, codeWord) + ".zip"
+	codeFile := ApplyTemplate(pctx.cfg.Prepare.Output.FileTemplate, vars, codeWord) + ".zip"
 
 	if err := s.FS.CopyFile(reportPDF, filepath.Join(submissionDir, reportFile), 0o644); err != nil {
 		return fmt.Errorf("copy pdf: %w", err)
@@ -215,16 +215,16 @@ func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareCo
 }
 
 func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[string]string) error {
-	reportWord := pctx.cfg.Submission.ReportWord
+	reportWord := pctx.cfg.Prepare.Output.ReportWord
 	if reportWord == "" {
 		reportWord = "Informe"
 	}
-	codeWord := pctx.cfg.Submission.CodeWord
+	codeWord := pctx.cfg.Prepare.Output.CodeWord
 	if codeWord == "" {
 		codeWord = "Código Fuente"
 	}
 
-	input := pctx.cfg.Submission.Template
+	input := pctx.cfg.Prepare.Output.FileTemplate
 	if input == "" {
 		input = "{output_type}_{lab_number}"
 	}
@@ -302,9 +302,9 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 			return err
 		}
 		if keep {
-			pctx.cfg.Submission.Template = input
-			pctx.cfg.Submission.ReportWord = reportWord
-			pctx.cfg.Submission.CodeWord = codeWord
+			pctx.cfg.Prepare.Output.FileTemplate = input
+			pctx.cfg.Prepare.Output.ReportWord = reportWord
+			pctx.cfg.Prepare.Output.CodeWord = codeWord
 			if err := s.Config.WriteConfig(pctx.projectRoot, pctx.cfg); err != nil {
 				return err
 			}

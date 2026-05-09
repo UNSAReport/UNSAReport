@@ -30,9 +30,23 @@ func (s *CaptureService) Execute(ctx context.Context, tapeFile, cwdFlag string, 
 		return fmt.Errorf("get cwd: %w", err)
 	}
 
-	projectRoot, _, ok, err := s.Config.FindProjectRoot(cwd)
+	projectRoot, cfg, ok, err := s.Config.FindProjectRoot(cwd)
 	if !ok {
 		projectRoot = cwd
+		cfg = ports.LabReportConfig{
+			Prepare: ports.PrepareConfig{
+				Input: ports.PrepareInputConfig{
+					SrcDir:     "src",
+					ReportFile: "report.typ",
+				},
+				Output: ports.PrepareOutputConfig{
+					SubmissionDir: "submission",
+				},
+			},
+			Capture: ports.CaptureConfig{
+				TapeConfig: "config.tape",
+			},
+		}
 	}
 
 	if err := s.FS.Chdir(projectRoot); err != nil {
@@ -60,8 +74,8 @@ func (s *CaptureService) Execute(ctx context.Context, tapeFile, cwdFlag string, 
 
 		var b strings.Builder
 
-		if s.FS.FileExists("config.tape") {
-			b.WriteString("Source config.tape\n\n")
+		if s.FS.FileExists(cfg.Capture.TapeConfig) {
+			b.WriteString(fmt.Sprintf("Source %s\n\n", cfg.Capture.TapeConfig))
 		}
 
 		if cwdFlag != "" {

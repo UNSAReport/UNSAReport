@@ -5,9 +5,18 @@ This directory is the working template for a lab-report project.
 ## Setup
 
 1. Ensure `typst` is installed and available in your shell (or use `nix develop`).
-2. Open `report.typ` and fill in the lab metadata variables.
-3. Put your solution code in `src/`, screenshots in `img/lab/` and (snippets)[#code-blocks-and-snippets] in `snippets/`.
-4. Run `lab-report prepare` to compile the report and create the submission bundle in `submission/`.
+2. Open `report.typ` (or your configured report filename) and fill in the lab metadata variables.
+3. Put your solution code in `src/`, screenshots in `img/lab/` and (snippets)[#code-blocks-and-snippets] in `snippets/`. (These paths default to `src/` but can be customized in `labreport.json`).
+4. Run `lab-report prepare` to compile the report and create the submission bundle in `submission/` (or your configured output directory).
+
+## Project Configuration
+
+You can customize the project structure in `labreport.json`:
+
+- `prepare.input.reportFile`: Set this if you rename `report.typ`.
+- `prepare.input.srcDir`: Set this if your code is in a directory other than `src/`.
+- `prepare.output.submissionDir`: Change where the final files are generated.
+- `capture.tapeConfig`: Change the default VHS configuration file.
 
 ## Typst Template Features
 

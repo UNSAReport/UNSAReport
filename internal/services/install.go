@@ -91,7 +91,22 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		}
 	}
 
-	if err := s.Config.WriteConfig(destDir, ports.LabReportConfig{MultiLab: opt.Multi}); err != nil {
+	defaultCfg := ports.LabReportConfig{
+		MultiLab: opt.Multi,
+		Prepare: ports.PrepareConfig{
+			Input: ports.PrepareInputConfig{
+				SrcDir:     "src",
+				ReportFile: "report.typ",
+			},
+			Output: ports.PrepareOutputConfig{
+				SubmissionDir: "submission",
+			},
+		},
+		Capture: ports.CaptureConfig{
+			TapeConfig: "config.tape",
+		},
+	}
+	if err := s.Config.WriteConfig(destDir, defaultCfg); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
 	fmt.Fprintf(os.Stdout, "Created: labreport.json (Mode: %s)\n", map[bool]string{true: "multi", false: "single"}[opt.Multi])
@@ -100,7 +115,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	fmt.Fprintln(os.Stdout, "Installation complete!")
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "Next steps:")
-	for _, step := range s.nextSteps(opt.Multi) {
+	for _, step := range s.nextSteps(defaultCfg) {
 		fmt.Fprintln(os.Stdout, step)
 	}
 
@@ -152,18 +167,18 @@ func substituteLab(entries []Entry, lab string) []Entry {
 	return out
 }
 
-func (s *InstallService) nextSteps(multi bool) []string {
-	if multi {
+func (s *InstallService) nextSteps(cfg ports.LabReportConfig) []string {
+	if cfg.MultiLab {
 		return []string{
-			"1. Edit l1/report.typ with your lab information",
-			"2. Place your source code in l1/src/",
+			fmt.Sprintf("1. Edit l1/%s with your lab information", cfg.Prepare.Input.ReportFile),
+			fmt.Sprintf("2. Place your source code in l1/%s/", cfg.Prepare.Input.SrcDir),
 			"3. Compile the report:",
 			"   lab-report prepare l1",
 		}
 	}
 	return []string{
-		"1. Edit report.typ with your project information",
-		"2. Place your source code in src/",
+		fmt.Sprintf("1. Edit %s with your project information", cfg.Prepare.Input.ReportFile),
+		fmt.Sprintf("2. Place your source code in %s/", cfg.Prepare.Input.SrcDir),
 		"3. Compile the report:",
 		"   lab-report prepare",
 	}
