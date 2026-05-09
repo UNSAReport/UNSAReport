@@ -3,23 +3,28 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    lab-report.url = "github:christianmz565/lab-report";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs =
-    { nixpkgs, ... }:
-    let
-      system = "x86_64-linux";
-    in
     {
-      devShells."${system}".default =
-        let
-          pkgs = import nixpkgs {
-            inherit system;
-            config.allowUnfree = true;
-          };
-          fonts = with pkgs; [ lato ];
-        in
-        pkgs.mkShell {
+      nixpkgs,
+      lab-report,
+      flake-utils,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
+        fonts = with pkgs; [ lato ];
+      in
+      {
+        devShells.default = pkgs.mkShell {
           packages =
             with pkgs;
             [
@@ -28,9 +33,13 @@
               tinymist
               vhs
             ]
-            ++ fonts;
+            ++ fonts
+            ++ [
+              lab-report.packages.${system}.default
+            ];
 
           buildInputs = [ pkgs.bashInteractive ];
+
           shellHook = ''
             unset SOURCE_DATE_EPOCH
           '';
@@ -41,5 +50,6 @@
             };
           };
         };
-    };
+      }
+    );
 }
