@@ -20,21 +20,11 @@
           fonts = with pkgs; [ lato ];
         in
         pkgs.mkShell {
-          LD_LIBRARY_PATH =
-            with pkgs;
-            lib.makeLibraryPath [
-              stdenv.cc.cc
-              zlib
-              glib
-              libxcb
-              libglvnd
-            ];
-
           packages =
             with pkgs;
             [
-              uv
               typst
+              typstyle
               tinymist
               vhs
             ]
