@@ -1,7 +1,7 @@
 package main
 
-import "github.com/christianmz565/lab-report/internal/cli"
+import "github.com/christianmz565/lab-report/internal/cmd"
 
 func main() {
-	cli.Execute()
+        cmd.Execute()
 }

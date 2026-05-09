@@ -1,4 +1,4 @@
-package cli
+package cmd
 
 import (
 	"context"
@@ -20,6 +20,13 @@ import (
 
 type prepareOptions struct {
 	configure bool
+}
+
+type prepareContext struct {
+	projectRoot string
+	labDir      string
+	isMulti     bool
+	cfg         config.LabReportConfig
 }
 
 func newPrepareCmd() *cobra.Command {
@@ -46,89 +53,57 @@ Arguments:
 	return cmd
 }
 
-func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
+func resolvePrepareContext(cwd, labDir string) (prepareContext, error) {
+	pctx := prepareContext{labDir: labDir}
 	projectRoot, cfg, ok, err := config.FindProjectRoot(cwd)
 	if err != nil {
 		fmt.Fprintln(os.Stdout, err.Error())
 	}
 
-	isMulti := false
 	if ok {
-		isMulti = cfg.MultiLab
+		pctx.isMulti = cfg.MultiLab
 	} else {
 		defaultCfg := config.LabReportConfig{MultiLab: labDir != ""}
 		if err := config.WriteConfig(cwd, defaultCfg); err != nil {
-			return err
+			return pctx, err
 		}
 		fmt.Fprintln(os.Stdout, "labreport.json not found. Created default config in the current directory.")
 		fmt.Fprintln(os.Stdout, "Please validate the configuration and run the command again.")
 		os.Exit(0)
 	}
 
-	if isMulti && labDir == "" {
+	if pctx.isMulti && pctx.labDir == "" {
 		rel, err := filepath.Rel(projectRoot, cwd)
 		if err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			parts := strings.Split(rel, string(filepath.Separator))
-			labDir = parts[0]
+			pctx.labDir = parts[0]
 		}
-		if labDir == "" {
-			return fmt.Errorf("multi-lab mode detected. Please specify a lab directory (e.g., lab-report prepare l1)")
+		if pctx.labDir == "" {
+			return pctx, fmt.Errorf("multi-lab mode detected. Please specify a lab directory (e.g., lab-report prepare l1)")
 		}
 	}
 
-	if err := os.Chdir(projectRoot); err != nil {
-		return err
-	}
+	pctx.projectRoot = projectRoot
+	pctx.cfg = cfg
+	return pctx, nil
+}
 
-	reportPath := "report.typ"
-	reportPDF := "report.pdf"
-	srcDir := "src"
-	if isMulti {
-		reportPath = filepath.Join(labDir, "report.typ")
-		reportPDF = filepath.Join(labDir, "report.pdf")
-		srcDir = filepath.Join(labDir, "src")
-	}
-
-	if !fsutil.FileExists(reportPath) {
-		return fmt.Errorf("report file not found: %s", reportPath)
-	}
-
-	// Quick check for typst (also covered by global dependency check).
-	_ = exec.Command("typst", "--version").Run()
-
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
-	defer cancel()
-
-	vars, err := prepare.QueryVars(ctx, reportPath)
-	if err != nil {
-		return err
-	}
-
-	template := ""
-	if !opt.configure && cfg.Submission.Template != "" {
-		template = cfg.Submission.Template
-	}
-
-	reportWord := cfg.Submission.ReportWord
+func promptConfiguration(pctx *prepareContext, vars map[string]string) error {
+	reportWord := pctx.cfg.Submission.ReportWord
 	if reportWord == "" {
 		reportWord = "Informe"
 	}
-	codeWord := cfg.Submission.CodeWord
+	codeWord := pctx.cfg.Submission.CodeWord
 	if codeWord == "" {
 		codeWord = "Código Fuente"
 	}
 
-	input := template
+	input := pctx.cfg.Submission.Template
 	if input == "" {
 		input = "{outputType}_{lab_number}"
 	}
 
-	for template == "" || opt.configure {
+	for {
 		fmt.Fprintln(os.Stdout, "\nVariable configuration for report naming:")
 		fmt.Fprintln(os.Stdout, "Available variables:")
 
@@ -202,19 +177,74 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 			return err
 		}
 		if keep {
-			template = input
-			cfg.Submission.Template = template
-			cfg.Submission.ReportWord = reportWord
-			cfg.Submission.CodeWord = codeWord
-			if err := config.WriteConfig(projectRoot, cfg); err != nil {
+			pctx.cfg.Submission.Template = input
+			pctx.cfg.Submission.ReportWord = reportWord
+			pctx.cfg.Submission.CodeWord = codeWord
+			if err := config.WriteConfig(pctx.projectRoot, pctx.cfg); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stdout, "Configuration saved to labreport.json\n")
-			opt.configure = false // Break the loop
+			break
+		}
+	}
+	return nil
+}
+
+func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	pctx, err := resolvePrepareContext(cwd, labDir)
+	if err != nil {
+		return err
+	}
+
+	if err := os.Chdir(pctx.projectRoot); err != nil {
+		return err
+	}
+
+	reportPath := "report.typ"
+	reportPDF := "report.pdf"
+	srcDir := "src"
+	if pctx.isMulti {
+		reportPath = filepath.Join(pctx.labDir, "report.typ")
+		reportPDF = filepath.Join(pctx.labDir, "report.pdf")
+		srcDir = filepath.Join(pctx.labDir, "src")
+	}
+
+	if !fsutil.FileExists(reportPath) {
+		return fmt.Errorf("report file not found: %s", reportPath)
+	}
+
+	// Quick check for typst
+	_ = exec.Command("typst", "--version").Run()
+
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+
+	vars, err := prepare.QueryVars(ctx, reportPath)
+	if err != nil {
+		return err
+	}
+
+	if pctx.cfg.Submission.Template == "" || opt.configure {
+		if err := promptConfiguration(&pctx, vars); err != nil {
+			return err
 		}
 	}
 
-	generatedReportName := naming.ApplyTemplate(template, vars, reportWord)
+	reportWord := pctx.cfg.Submission.ReportWord
+	if reportWord == "" {
+		reportWord = "Informe"
+	}
+	codeWord := pctx.cfg.Submission.CodeWord
+	if codeWord == "" {
+		codeWord = "Código Fuente"
+	}
+
+	generatedReportName := naming.ApplyTemplate(pctx.cfg.Submission.Template, vars, reportWord)
 
 	fmt.Fprintln(os.Stdout, "Compiling typst report...")
 	if err := prepare.Compile(ctx, reportPath, reportPDF, generatedReportName); err != nil {
@@ -222,15 +252,15 @@ func runPrepare(ctx context.Context, opt prepareOptions, labDir string) error {
 	}
 
 	submissionDir := "submission"
-	if isMulti {
-		submissionDir = filepath.Join(labDir, "submission")
+	if pctx.isMulti {
+		submissionDir = filepath.Join(pctx.labDir, "submission")
 	}
 	if err := fsutil.EnsureDir(submissionDir); err != nil {
 		return err
 	}
 
 	reportFile := generatedReportName + ".pdf"
-	codeFile := naming.ApplyTemplate(template, vars, codeWord) + ".zip"
+	codeFile := naming.ApplyTemplate(pctx.cfg.Submission.Template, vars, codeWord) + ".zip"
 
 	if err := fsutil.CopyFile(reportPDF, filepath.Join(submissionDir, reportFile), 0o644); err != nil {
 		return err

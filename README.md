@@ -10,8 +10,7 @@ This repository provides:
 The CLI validates these external tools on startup:
 
 - `typst`
-- `freeze` (charmbracelet/freeze)
-- `magick` (ImageMagick)
+- `vhs` (charmbracelet/vhs)
 
 If you prefer Nix, the included `flake.nix` provides a ready-made environment.
 
@@ -69,12 +68,10 @@ Use `--configure` to re-run the PDF naming template prompt.
 
 ## Capture terminal output
 
-```bash
-lab-report capture img/lab/session "typst compile report.typ report.pdf"
-```
-
-Inputs for interactive commands can be replayed with `ms:input` arguments:
+Thanks to the incredible [charmbracelet/vhs](https://github.com/charmbracelet/vhs) project, terminal output capture is fully scriptable using `.tape` files!
 
 ```bash
-lab-report capture img/lab/repl "bash" 1000:"echo done\\r" 2000:"exit\\r"
+lab-report capture template.tape
 ```
+
+The tool will automatically create a default `config.tape` and `template.tape` if they are missing.

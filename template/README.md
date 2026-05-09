@@ -13,7 +13,7 @@ This directory is the working template for a lab-report project.
 ## Required Tools
 
 - `typst` for compiling the report.
-- `freeze` (charmbracelet/freeze) and ImageMagick's `magick` for terminal screenshot capture.
+- `vhs` (charmbracelet/vhs) for terminal screenshot capture.
 
 ## Commands
 
@@ -29,15 +29,34 @@ Reconfigure the output-name template before packaging:
 lab-report prepare --configure
 ```
 
-Capture terminal output into a PNG:
+Capture terminal output into a PNG via a `.tape` file script:
 
 ```bash
-lab-report capture img/lab/session "typst compile report.typ report.pdf"
+lab-report capture template.tape
 ```
 
-> You probably want to configure freeze's user settings first with `freeze -i`.
+### VHS Tape Scripting
+
+A `.tape` file consists of commands that control a virtual terminal.
+
+- `Screenshot <path>.png`: Save the current frame as a PNG.
+- `Type "<string>"`: Emulate typing characters.
+- `Enter`, `Backspace`, `Up`, `Down`, `Left`, `Right`, `Tab`, `Space`, `Escape`: Emulate pressing the respective keys.
+- `Ctrl+<char>`, `Alt+<char>`: Emulate pressing control/alt combined with a character.
+- `Sleep <time>`: Wait for a certain amount of time (e.g. `Sleep 1s`).
+- `Hide`: Pause capturing.
+- `Show`: Resume capturing.
+
+#### Settings
+
+Settings must be at the top of the file (or in `config.tape`):
+- `Set Width <number>`: Set terminal width.
+- `Set Height <number>`: Set terminal height.
+- `Set FontSize <number>`: Set font size.
+- `Set FontFamily "<font>"`: Set font family.
+- `Set Theme "<name>"`: Set the terminal theme.
 
 ## Output
 
 `lab-report prepare` writes the compiled PDF and source archive into `submission/`.
-The PDF and archive names are derived from the template in `.prepare.config` unless you reconfigure it with `--configure`.
+The PDF and archive names are derived from the template in `labreport.json` unless you reconfigure it with `--configure`.

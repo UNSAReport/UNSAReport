@@ -36,8 +36,7 @@
               uv
               typst
               tinymist
-              charm-freeze
-              imagemagick
+              fontconfig
             ]
             ++ fonts;
 

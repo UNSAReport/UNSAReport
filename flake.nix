@@ -7,7 +7,12 @@
   };
 
   outputs =
-    { self, nixpkgs, flake-utils, ... }:
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      ...
+    }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -15,7 +20,8 @@
           inherit system;
           config.allowUnfree = true;
         };
-        ldPath = with pkgs;
+        ldPath =
+          with pkgs;
           lib.makeLibraryPath [
             stdenv.cc.cc
             zlib
@@ -27,18 +33,26 @@
       {
         packages.default = pkgs.buildGoModule {
           pname = "lab-report";
-          version = "0.0.0";
+          version = "1.0.0";
           src = ./.;
           subPackages = [ "cmd/lab-report" ];
 
-          # Update this hash by running: nix build
-          vendorHash = "sha256-56GDdOSzIO3f2ikTOf8dauJ2fx7h+CTTeQNruZm1lr0=";
+          vendorHash = "sha256-xU5rQY64h11wbDn8BuckO32KHpaihCaxkBQnfM0H2tQ=";
+
+          nativeBuildInputs = [ pkgs.pkg-config ];
+          buildInputs = [ pkgs.fontconfig ];
 
           ldflags = [
             "-s"
             "-w"
-            "-X github.com/christianmz565/lab-report/internal/cli.Version=0.0.0"
           ];
+
+          meta = with pkgs.lib; {
+            description = "A CLI tool for generating lab reports from markdown files.";
+            homepage = "https://github.com/christianmz565/lab-report";
+            license = licenses.mit;
+            platforms = platforms.unix ++ platforms.darwin ++ platforms.windows;
+          };
         };
 
         apps.default = flake-utils.lib.mkApp {
@@ -56,11 +70,11 @@
 
             typst
             tinymist
-            charm-freeze
-            imagemagick
+
+            fontconfig
+            pkg-config
           ];
 
-          nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.bashInteractive ];
 
           env = {

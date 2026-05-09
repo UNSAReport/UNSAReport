@@ -2,5 +2,5 @@
 package tools
 
 import (
-	_ "github.com/charmbracelet/freeze"
+	_ "github.com/charmbracelet/vhs"
 )

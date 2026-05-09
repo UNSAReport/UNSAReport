@@ -13,7 +13,7 @@ type Tool struct {
 
 var Required = []Tool{
 	{Name: "typst", Description: "Typst compiler"},
-	{Name: "freeze", Description: "charmbracelet/freeze (terminal capture renderer)"},
+	{Name: "vhs", Description: "charmbracelet/vhs (terminal capture renderer)"},
 }
 
 func CheckAll() error {
