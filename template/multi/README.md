@@ -71,6 +71,20 @@ You are also strongly advised to follow the snippets/ and src/ conventions. All 
 
 ## Commands
 
+Add a new lab session:
+```bash
+lab-report install --session l2
+```
+
+Update the template files across all registered sessions or for a specific session:
+```bash
+# Update all sessions
+lab-report update
+
+# Update a specific session
+lab-report update l1
+```
+
 Compile the report and create the submission bundle for a specific lab (e.g., `l1`):
 ```bash
 lab-report prepare l1

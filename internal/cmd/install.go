@@ -42,6 +42,7 @@ from the repository and initializes a 'labreport.json' configuration file.`,
 
 	cmd.Flags().StringVar(&opt.Dest, "dest", "", "Destination directory (default: current working directory)")
 	cmd.Flags().BoolVar(&opt.Multi, "multi", false, "Install as a multi-lab repository")
+	cmd.Flags().StringVar(&opt.Session, "session", "", "Session/Lab name for per-lab installation in multi-lab mode")
 	cmd.Flags().StringVar(&opt.Repo, "repo", "christianmz565/lab-report", "GitHub repo to fetch templates from (owner/repo)")
 	cmd.Flags().StringVar(&opt.Ref, "ref", "main", "Git ref to fetch templates from")
 

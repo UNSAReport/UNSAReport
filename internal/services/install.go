@@ -11,10 +11,11 @@ import (
 )
 
 type InstallOptions struct {
-	Dest  string
-	Multi bool
-	Repo  string
-	Ref   string
+	Dest    string
+	Multi   bool
+	Session string
+	Repo    string
+	Ref     string
 }
 
 type InstallService struct {
@@ -41,6 +42,35 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		return fmt.Errorf("abs dest path: %w", err)
 	}
 
+	projectRoot, cfg, hasConfig, err := s.Config.FindProjectRoot(destDir)
+	if err != nil {
+		fmt.Fprintln(os.Stdout, err.Error())
+	}
+	if hasConfig {
+		destDir = projectRoot
+		opt.Multi = cfg.MultiLab
+	} else {
+		cfg = ports.LabReportConfig{
+			MultiLab: opt.Multi,
+			Prepare: ports.PrepareConfig{
+				Input: ports.PrepareInputConfig{
+					SrcDir:     "src",
+					ReportFile: "report.typ",
+				},
+				Output: ports.PrepareOutputConfig{
+					SubmissionDir: "submission",
+				},
+			},
+			Capture: ports.CaptureConfig{
+				TapeConfig: "config.tape",
+			},
+		}
+	}
+
+	if opt.Session != "" && !opt.Multi {
+		return fmt.Errorf("--session flag can only be used with multi-lab mode")
+	}
+
 	var files map[string][]byte
 	if info, err := s.FS.Stat(opt.Repo); err == nil && info.IsDir() {
 		files, err = s.Fetcher.LoadLocal(opt.Repo)
@@ -63,24 +93,46 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		return fmt.Errorf("ensure dest dir: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "Installing lab report template to: %s\n", destDir)
-	if opt.Multi {
-		fmt.Fprintln(os.Stdout, "Mode: Multi-lab (--multi)")
+	if opt.Session != "" {
+		fmt.Fprintf(os.Stdout, "Installing session '%s' into multi-lab project: %s\n", opt.Session, destDir)
+	} else {
+		fmt.Fprintf(os.Stdout, "Installing lab report template to: %s\n", destDir)
+		if opt.Multi {
+			fmt.Fprintln(os.Stdout, "Mode: Multi-lab (--multi)")
+		}
 	}
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
 
 	if opt.Multi {
-		rootEntries := ExpandDirEntries(files, append(m.Multi.Root, m.Common...))
-		if err := s.applyEntriesInstall(files, destDir, rootEntries); err != nil {
-			return err
+		if !hasConfig {
+			rootEntries := ExpandDirEntries(files, append(m.Multi.Root, m.Common...))
+			if err := s.applyEntriesInstall(files, destDir, rootEntries); err != nil {
+				return err
+			}
 		}
 
 		lab := "l1"
+		if opt.Session != "" {
+			lab = opt.Session
+		}
+
 		labEntries := substituteLab(m.Multi.LabFiles, lab)
 		labEntriesExpanded := ExpandDirEntries(files, labEntries)
 		if err := s.applyEntriesInstall(files, destDir, labEntriesExpanded); err != nil {
 			return err
 		}
+		
+		sessionFound := false
+		for _, s := range cfg.Sessions {
+			if s == lab {
+				sessionFound = true
+				break
+			}
+		}
+		if !sessionFound {
+			cfg.Sessions = append(cfg.Sessions, lab)
+		}
+
 	} else {
 		allEntries := ExpandDirEntries(files, append(m.Common, m.Single...))
 		if err := s.applyEntriesInstall(files, destDir, allEntries); err != nil {
@@ -88,32 +140,23 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		}
 	}
 
-	defaultCfg := ports.LabReportConfig{
-		MultiLab: opt.Multi,
-		Prepare: ports.PrepareConfig{
-			Input: ports.PrepareInputConfig{
-				SrcDir:     "src",
-				ReportFile: "report.typ",
-			},
-			Output: ports.PrepareOutputConfig{
-				SubmissionDir: "submission",
-			},
-		},
-		Capture: ports.CaptureConfig{
-			TapeConfig: "config.tape",
-		},
-	}
-	if err := s.Config.WriteConfig(destDir, defaultCfg); err != nil {
+	if err := s.Config.WriteConfig(destDir, cfg); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
-	fmt.Fprintf(os.Stdout, "Created: labreport.json (Mode: %s)\n", map[bool]string{true: "multi", false: "single"}[opt.Multi])
+	if !hasConfig {
+		fmt.Fprintf(os.Stdout, "Created: labreport.json (Mode: %s)\n", map[bool]string{true: "multi", false: "single"}[opt.Multi])
+	} else {
+		fmt.Fprintf(os.Stdout, "Updated: labreport.json\n")
+	}
 
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
 	fmt.Fprintln(os.Stdout, "Installation complete!")
 	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, "Next steps:")
-	for _, step := range s.nextSteps(defaultCfg) {
-		fmt.Fprintln(os.Stdout, step)
+	if !hasConfig {
+		fmt.Fprintln(os.Stdout, "Next steps:")
+		for _, step := range s.nextSteps(cfg) {
+			fmt.Fprintln(os.Stdout, step)
+		}
 	}
 
 	return nil

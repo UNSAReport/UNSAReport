@@ -16,10 +16,10 @@ const (
 )
 
 type Entry struct {
-	Kind       EntryKind `json:"kind"`
-	Src        string    `json:"src,omitempty"`
-	Dest       string    `json:"dest"`
-	AutoUpdate bool      `json:"autoUpdate,omitempty"`
+	Kind      EntryKind `json:"kind"`
+	Src       string    `json:"src,omitempty"`
+	Dest      string    `json:"dest"`
+	Updatable bool      `json:"updatable,omitempty"`
 }
 
 type MultiSection struct {

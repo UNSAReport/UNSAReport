@@ -23,6 +23,7 @@ type PrepareConfig struct {
 
 type LabReportConfig struct {
 	MultiLab bool          `json:"multiLab"`
+	Sessions []string      `json:"sessions,omitempty"`
 	Capture  CaptureConfig `json:"capture"`
 	Prepare  PrepareConfig `json:"prepare"`
 }

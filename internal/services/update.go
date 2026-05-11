@@ -14,10 +14,11 @@ import (
 )
 
 type UpdateOptions struct {
-	Dest  string
-	Force bool
-	Repo  string
-	Ref   string
+	Dest    string
+	Force   bool
+	Session string
+	Repo    string
+	Ref     string
 }
 
 type UpdateService struct {
@@ -117,12 +118,16 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	fmt.Fprintf(os.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti])
 	fmt.Fprintf(os.Stdout, "Checking for updates in: %s\n\n", destDir)
 
-	entries := s.buildUpdateEntries(m, isMulti, destDir, cfg)
+	entries := s.buildUpdateEntries(m, isMulti, destDir, cfg, opt.Session)
 	entries = ExpandDirEntries(remoteFiles, entries)
 	applied := 0
 	autoAcceptAll := opt.Force
 
 	for _, e := range entries {
+		if !e.Updatable {
+			continue
+		}
+		
 		dstPath := filepath.Join(destDir, filepath.FromSlash(e.Dest))
 		srcPath := e.Src
 
@@ -156,15 +161,11 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 				return nil
 			}
 
-			if e.AutoUpdate || autoAcceptAll {
+			if autoAcceptAll {
 				if err := apply(); err != nil {
 					return err
 				}
-				tag := "[FORCED]"
-				if e.AutoUpdate {
-					tag = "[AUTO-UPDATE]"
-				}
-				fmt.Fprintf(os.Stdout, "✓ Updated %s: %s\n", tag, label)
+				fmt.Fprintf(os.Stdout, "✓ Updated [FORCED]: %s\n", label)
 				continue
 			}
 
@@ -202,7 +203,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	return nil
 }
 
-func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir string, cfg ports.LabReportConfig) []Entry {
+func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir string, cfg ports.LabReportConfig, session string) []Entry {
 	var out []Entry
 	add := func(entries ...[]Entry) {
 		for _, list := range entries {
@@ -213,8 +214,11 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir st
 	if isMulti {
 		add(m.Common, m.Multi.Root)
 
-		labs := s.detectLabDirs(destDir, cfg)
-		sort.Strings(labs)
+		labs := cfg.Sessions
+		if session != "" {
+			labs = []string{session}
+		}
+
 		for _, lab := range labs {
 			out = append(out, substituteLab(m.Multi.LabFiles, lab)...)
 		}
@@ -251,27 +255,6 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir st
 		final = append(final, e)
 	}
 	return final
-}
-
-func (s *UpdateService) detectLabDirs(destDir string, cfg ports.LabReportConfig) []string {
-	entries, err := s.FS.ReadDir(destDir)
-	if err != nil {
-		return nil
-	}
-	labs := make([]string, 0)
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if strings.HasPrefix(name, ".") || name == "node_modules" {
-			continue
-		}
-		if s.FS.FileExists(filepath.Join(destDir, name, cfg.Prepare.Input.ReportFile)) {
-			labs = append(labs, name)
-		}
-	}
-	return labs
 }
 
 func (s *UpdateService) showDiff(fileName, oldText, newText, oldPath, newSrc string) {

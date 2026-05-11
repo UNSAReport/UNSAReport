@@ -70,6 +70,11 @@ You are also strongly advised to follow the snippets/ and src/ conventions. All 
 
 ## Commands
 
+Update the template files to the latest version:
+```bash
+lab-report update
+```
+
 Compile the report and create the submission bundle:
 ```bash
 lab-report prepare

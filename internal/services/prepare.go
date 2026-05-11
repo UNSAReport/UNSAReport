@@ -197,20 +197,31 @@ func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareCo
 
 	if labDirArg != "" {
 		pctx.labDir = labDirArg
-		return pctx, nil
+	} else {
+		rel, err := filepath.Rel(projectRoot, cwd)
+		if err != nil {
+			return pctx, fmt.Errorf("could not determine relative path: %w", err)
+		}
+
+		if rel == "." {
+			return pctx, fmt.Errorf("in a multi-lab project, you must either provide a lab directory or run this command from inside a lab directory")
+		}
+
+		parts := strings.Split(filepath.ToSlash(rel), "/")
+		pctx.labDir = parts[0]
 	}
 
-	rel, err := filepath.Rel(projectRoot, cwd)
-	if err != nil {
-		return pctx, fmt.Errorf("could not determine relative path: %w", err)
+	sessionValid := false
+	for _, s := range pctx.cfg.Sessions {
+		if s == pctx.labDir {
+			sessionValid = true
+			break
+		}
+	}
+	if !sessionValid {
+		return pctx, fmt.Errorf("session '%s' is not registered in labreport.json", pctx.labDir)
 	}
 
-	if rel == "." {
-		return pctx, fmt.Errorf("in a multi-lab project, you must either provide a lab directory or run this command from inside a lab directory")
-	}
-
-	parts := strings.Split(filepath.ToSlash(rel), "/")
-	pctx.labDir = parts[0]
 	return pctx, nil
 }
 

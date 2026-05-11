@@ -25,11 +25,14 @@ flag is used.`,
   # Force update all files without prompting
   lab-report update --force
 
-  # Update a project in a different directory
-  lab-report update --dest ./my-reports`,
+  # Update a specific session in a multi-lab repository
+  lab-report update l1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
+			if len(args) > 1 {
 				return cmd.Help()
+			}
+			if len(args) == 1 {
+				opt.Session = args[0]
 			}
 
 			fs := osfs.New()

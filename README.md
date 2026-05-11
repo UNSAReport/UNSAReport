@@ -51,12 +51,22 @@ For a repository containing multiple laboratory sessions (e.g., `l1/`, `l2/`):
 lab-report install --multi
 ```
 
+To add a new session to an existing multi-lab repository:
+
+```bash
+lab-report install --session l3
+```
+
 ### Updating Templates
 
 Keep your project's template files synchronized with the latest version:
 
 ```bash
+# Update the current single-lab project or ALL registered sessions in a multi-lab project
 lab-report update
+
+# Update a specific session in a multi-lab project
+lab-report update l1
 ```
 
 Use the `--force` flag to apply all updates without interactive prompts.
@@ -156,6 +166,7 @@ lab-report capture --tape report.tape
 The `labreport.json` file in your project root controls the behavior of the tool:
 
 - `multiLab`: (boolean) Indicates if the project is a multi-lab setup.
+- `sessions`: (array of strings) List of registered session directories (e.g., `["l1", "l2"]`) in a multi-lab setup. Managed automatically by `install --session`.
 - `capture`:
   - `tapeConfig`: (string) The VHS tape configuration file automatically loaded during capture. Defaults to `config.tape`.
 - `prepare`:
