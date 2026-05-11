@@ -1,13 +1,9 @@
-#import "/lib.typ": code-block, get-var, header-border-color, lab-report, lab-section, table-border-width
+#import "/lib.typ": code-block, define, get-var, header-border-color, lab-report, lab-section, table-border-width
 #import "/functions.typ": abbreviate-by-caps, summarize-name
 #import "@preview/elembic:1.1.1" as e
 
 #show: e.set_(code-block, lang: "python")
 #show: e.set_(code-block, prefix: "#")
-
-#let define(name, value) = {
-  [#metadata((name: name, value: value)) <var_export>]
-}
 
 // Required vars: course_name, lab_title, lab_number, instructor_name, members
 // Optional vars: year, presentation_date, course_abbr, shortnames_chain, surnames_chain, sem_code, presentation_hour, wide_lab_number

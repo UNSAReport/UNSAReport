@@ -5,6 +5,10 @@
 #let tb-header-bg-color = rgb("#C8310E")
 #let code-bg-color = rgb("#F1F3F4")
 
+#let define(name, value) = {
+  [#metadata((name: name, value: value)) <var_export>]
+}
+
 #let extract-named-snippet(source, file, snippet-name, prefix) = {
   let lines = source.split("\n")
   let start-marker = prefix + " START-SNIPPET," + snippet-name
@@ -245,30 +249,6 @@
         top: 6cm,
         bottom: 2.54cm,
         left: 1.9cm,
-        right: 1.9cm,
-      ),
-      header: page-header(),
-      header-ascent: 5%,
-    )
-
-    align(center)[#text(size: 13pt, weight: "bold")[INFORME DE LABORATORIO]]
-
-    basic-info-table(
-      course-name,
-      lab-title,
-      lab-number,
-      resolved-year,
-      sem-code,
-      resolved-presentation-date,
-      presentation-hour,
-      member-list,
-      instructor-name,
-    )
-
-    it.body
-  },
-)
-t: 1.9cm,
         right: 1.9cm,
       ),
       header: page-header(),
