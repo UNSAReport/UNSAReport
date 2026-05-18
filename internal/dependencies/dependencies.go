@@ -11,11 +11,12 @@ type Tool struct {
 }
 
 var (
-	Typst = Tool{Name: "typst", Description: "Typst compiler"}
-	VHS   = Tool{Name: "vhs", Description: "charmbracelet/vhs (terminal capture renderer)"}
+	Typst       = Tool{Name: "typst", Description: "Typst compiler"}
+	Freeze      = Tool{Name: "freeze", Description: "charmbracelet/freeze (terminal capture renderer)"}
+	ImageMagick = Tool{Name: "magick", Description: "ImageMagick (SVG to PNG conversion)"}
 )
 
-var Required = []Tool{Typst, VHS}
+var Required = []Tool{Typst, Freeze, ImageMagick}
 
 func Check(tool Tool) error {
 	if _, err := exec.LookPath(tool.Name); err != nil {

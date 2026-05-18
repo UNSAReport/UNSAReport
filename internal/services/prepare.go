@@ -110,7 +110,7 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 	}
 
 	zipPath := filepath.Join(submissionDir, codeFile)
-	_ = s.FS.Remove(zipPath)
+	s.FS.Remove(zipPath)
 
 	fmt.Fprintf(os.Stdout, "Archiving %s to %s...\n", srcDir, zipPath)
 	files, err := s.listGitFiles(ctx, srcDir)

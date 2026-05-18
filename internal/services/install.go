@@ -61,9 +61,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 					SubmissionDir: "submission",
 				},
 			},
-			Capture: ports.CaptureConfig{
-				TapeConfig: "config.tape",
-			},
+			Capture: ports.CaptureConfig{},
 		}
 	}
 

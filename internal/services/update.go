@@ -77,9 +77,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 					SubmissionDir: "submission",
 				},
 			},
-			Capture: ports.CaptureConfig{
-				TapeConfig: "config.tape",
-			},
+			Capture: ports.CaptureConfig{},
 		}
 		if err := s.Config.WriteConfig(destDir, defaultCfg); err != nil {
 			return fmt.Errorf("write default config: %w", err)
@@ -242,14 +240,13 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir st
 		e := seen[k]
 		parts := strings.Split(e.Dest, "/")
 		last := parts[len(parts)-1]
-		if last == "report.typ" {
+		switch last {
+		case "report.typ":
 			parts[len(parts)-1] = cfg.Prepare.Input.ReportFile
-		} else if last == "src" {
+		case "src":
 			parts[len(parts)-1] = cfg.Prepare.Input.SrcDir
-		} else if last == "submission" {
+		case "submission":
 			parts[len(parts)-1] = cfg.Prepare.Output.SubmissionDir
-		} else if last == "config.tape" {
-			parts[len(parts)-1] = cfg.Capture.TapeConfig
 		}
 		e.Dest = strings.Join(parts, "/")
 		final = append(final, e)

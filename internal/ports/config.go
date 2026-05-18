@@ -1,7 +1,9 @@
 package ports
 
 type CaptureConfig struct {
-	TapeConfig string `json:"tapeConfig,omitempty"`
+	FreezeFlags []string          `json:"freezeFlags,omitempty"`
+	Prompt      string            `json:"prompt,omitempty"`
+	Colors      map[string]string `json:"colors,omitempty"`
 }
 
 type PrepareInputConfig struct {

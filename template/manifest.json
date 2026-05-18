@@ -2,28 +2,30 @@
   "common": [
     { "kind": "file", "src": "lib.typ", "dest": "lib.typ", "updatable": true },
     { "kind": "file", "src": "flake.nix", "dest": "flake.nix" },
-    { "kind": "file", "src": "bibliography.bib", "dest": "bibliography.bib" },
     { "kind": "file", "src": "README.md", "dest": "README.md" },
     { "kind": "file", "src": ".gitignore", "dest": ".gitignore", "updatable": true },
     { "kind": "dir", "src": "img/fixed", "dest": "img/fixed", "updatable": true },
-    { "kind": "file", "src": "config.tape", "dest": "config.tape", "updatable": true },
     { "kind": "file", "src": "functions.typ", "dest": "functions.typ", "updatable": true }
   ],
   "single": [
     { "kind": "file", "src": "report.typ", "dest": "report.typ" },
+    { "kind": "file", "src": "bibliography.bib", "dest": "bibliography.bib" },
     { "kind": "dir", "src": "img/lab", "dest": "img/lab", "updatable": true },
     { "kind": "dir", "src": "snippets", "dest": "snippets", "updatable": true },
     { "kind": "dir", "src": "src", "dest": "src", "updatable": true },
-    { "kind": "dir", "src": "guide", "dest": "guide", "updatable": true },
-    { "kind": "file", "src": "template.tape", "dest": "template.tape" }
+    { "kind": "dir", "src": "guide", "dest": "guide", "updatable": true }
   ],
   "multi": {
     "root": [
-      { "kind": "file", "src": "multi/README.md", "dest": "README.md" },
-      { "kind": "file", "src": "multi/template.tape", "dest": "template.tape" }
+      { "kind": "file", "src": "multi/README.md", "dest": "README.md" }
     ],
     "labFiles": [
       { "kind": "file", "src": "multi/report.typ", "dest": "{lab}/report.typ" },
+      {
+        "kind": "file",
+        "src": "bibliography.bib",
+        "dest": "{lab}/bibliography.bib"
+      },
       { "kind": "dir", "src": "img/lab", "dest": "{lab}/img/lab", "updatable": true },
       { "kind": "dir", "src": "snippets", "dest": "{lab}/snippets", "updatable": true },
       { "kind": "dir", "src": "src", "dest": "{lab}/src", "updatable": true },

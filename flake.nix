@@ -51,7 +51,8 @@
               --prefix PATH : ${
                 pkgs.lib.makeBinPath [
                   pkgs.typst
-                  pkgs.vhs
+                  pkgs.freeze
+                  pkgs.imagemagick
                 ]
               }
           '';
@@ -85,7 +86,8 @@
             tinymist
 
             fontconfig
-            vhs
+            charm-freeze
+            imagemagick
           ];
 
           buildInputs = [ pkgs.bashInteractive ];

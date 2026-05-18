@@ -31,7 +31,8 @@
               typst
               typstyle
               tinymist
-              vhs
+              charm-freeze
+              imagemagick
             ]
             ++ fonts
             ++ [

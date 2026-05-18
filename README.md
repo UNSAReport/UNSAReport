@@ -17,7 +17,8 @@ The included Typst template provides specialized components for academic reports
 The CLI lazily validates external dependencies at runtime:
 
 - [Typst](https://typst.app/): For report compilation and metadata extraction.
-- [VHS](https://github.com/charmbracelet/vhs): For terminal output capture.
+- [Freeze](https://github.com/charmbracelet/freeze): For terminal output capture.
+- [ImageMagick](https://imagemagick.org/): For SVG to PNG conversion.
 
 A `flake.nix` is provided for users who prefer a pre-configured Nix environment.
 
@@ -98,23 +99,19 @@ Use `--configure` to re-trigger the naming template setup prompt.
 
 ### Capturing Terminal Output
 
-Leveraging VHS, you can capture terminal sessions directly into PNG files.
+Leveraging Freeze and ImageMagick, you can capture terminal sessions directly into PNG files.
 
-**Oneshot Mode**: Execute instructions directly from the command line.
+The `capture` command executes terminal instructions directly and captures the resulting output. It uses a clean terminal environment and supports custom prompt formatting.
 
 ```bash
-lab-report capture --cwd ./src output.png "python script.py" "tape:Sleep 2s" "tape:Ctrl+D"
+lab-report capture --cwd ./src output.png "python script.py" "w:2s"
 ```
 
 - Text arguments are typed into the terminal followed by `Enter`.
-- Arguments prefixed with `tape:` are interpreted as raw VHS commands.
-- If the tapeConfig (defaults to `config.tape`) file exists in the directory, it is automatically loaded.
+- Arguments prefixed with `w:` are interpreted as a wait/sleep:
+  - `w:<duration>` (e.g., `w:2s`, `w:500ms`)
 
-**Script Mode**: Run an existing `.tape` file.
-
-```bash
-lab-report capture --tape report.tape
-```
+Logs of the terminal output (including ANSI colors) are automatically saved in the `capture_logs/` directory as `.log` files.
 
 ## Project Structure
 
@@ -125,8 +122,6 @@ lab-report capture --tape report.tape
 ├── report.typ        # Main report file
 ├── lib.typ           # Template library
 ├── functions.typ     # Useful functions for config var generation
-├── config.tape       # VHS tape configuration for terminal capture
-├── template.tape     # Small snippet to showcase script mode capture
 ├── README.md         # Summary file with instructions
 ├── flake.nix         # Nix flake for development environment
 ├── bibliography.bib  # Bibliography file for references
@@ -143,8 +138,6 @@ lab-report capture --tape report.tape
 ├── labreport.json    # Project configuration
 ├── lib.typ           # Template library
 ├── functions.typ     # Useful functions for config var generation
-├── config.tape       # VHS tape configuration for terminal capture
-├── template.tape     # Small snippet to showcase script mode capture
 ├── README.md         # Summary file with instructions
 ├── flake.nix         # Nix flake for development environment
 ├── bibliography.bib  # Bibliography file for references
@@ -168,7 +161,9 @@ The `labreport.json` file in your project root controls the behavior of the tool
 - `multiLab`: (boolean) Indicates if the project is a multi-lab setup.
 - `sessions`: (array of strings) List of registered session directories (e.g., `["l1", "l2"]`) in a multi-lab setup. Managed automatically by `install --session`.
 - `capture`:
-  - `tapeConfig`: (string) The VHS tape configuration file automatically loaded during capture. Defaults to `config.tape`.
+  - `freezeFlags`: (array of strings) Additional flags to pass to `freeze` during capture.
+  - `prompt`: (string) The prompt character to use (default: `❯ `).
+  - `colors`: (object) ANSI color codes for `prompt`, `command`, `args`, and `reset`.
 - `prepare`:
   - `input`:
     - `srcDir`: (string) The directory containing your source code. Defaults to `src`.
