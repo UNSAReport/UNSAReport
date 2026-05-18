@@ -37,7 +37,7 @@
           src = ./.;
           subPackages = [ "cmd/lab-report" ];
 
-          vendorHash = "sha256-xVriwYwOc3bFMLWFIYJ4419WvAQtEU7AKV8TSgfZtco=";
+          vendorHash = "sha256-ryLp4Sy0TULQ9zWCZiwT1JAmHZjpymlcZY/PrbFE8Vw=";
 
           nativeBuildInputs = [
             pkgs.pkg-config
