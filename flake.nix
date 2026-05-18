@@ -51,7 +51,7 @@
               --prefix PATH : ${
                 pkgs.lib.makeBinPath [
                   pkgs.typst
-                  pkgs.freeze
+                  pkgs.charm-freeze
                   pkgs.imagemagick
                 ]
               }
