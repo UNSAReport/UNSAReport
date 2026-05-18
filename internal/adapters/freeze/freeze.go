@@ -31,7 +31,7 @@ func (a *Adapter) Render(ctx context.Context, resultPath string, commands []port
 	}
 
 	output, err := runInPTY(ctx, commands, cfg)
-	if err != nil {
+	if err != nil && output == "" {
 		return "", fmt.Errorf("run in pty: %w", err)
 	}
 
