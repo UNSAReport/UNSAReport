@@ -125,7 +125,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		if !e.Updatable {
 			continue
 		}
-		
+
 		dstPath := filepath.Join(destDir, filepath.FromSlash(e.Dest))
 		srcPath := e.Src
 

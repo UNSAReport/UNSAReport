@@ -1,0 +1,21 @@
+version: "2"
+
+linters:
+  default: standard
+  disable:
+    - errcheck
+  enable:
+    - revive
+    - misspell
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
