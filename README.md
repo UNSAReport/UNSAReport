@@ -110,6 +110,9 @@ lab-report capture --cwd ./src output.png "python script.py" "w:2s"
 - Text arguments are typed into the terminal followed by `Enter`.
 - Arguments prefixed with `w:` are interpreted as a wait/sleep:
   - `w:<duration>` (e.g., `w:2s`, `w:500ms`)
+- Arguments prefixed with `r:` write the raw text after it without pressing Enter.
+- Arguments prefixed with `c:` send a Ctrl + <key> combination (e.g., `c:c` for Ctrl+C).
+- Arguments prefixed with `k:` send a specific control key (e.g., `k:enter`, `k:tab`, `k:backspace`, `k:escape`, `k:esc`).
 
 Logs of the terminal output (including ANSI colors) are automatically saved in the `capture_logs/` directory as `.log` files.
 
@@ -135,20 +138,20 @@ Logs of the terminal output (including ANSI colors) are automatically saved in t
 ### Multi Lab
 ```text
 .
-├── labreport.json    # Project configuration
-├── lib.typ           # Template library
-├── functions.typ     # Useful functions for config var generation
-├── README.md         # Summary file with instructions
-├── flake.nix         # Nix flake for development environment
-├── bibliography.bib  # Bibliography file for references
-├── img/fixed/        # Fixed image assets
-├── l1/               # Lab 1 directory
-│   ├── report.typ    # Lab 1 report file
-│   ├── guide/        # Lab 1 guide and instructions
-│   ├── snippets/     # Lab 1 code snippets for the report directory
-│   ├── img/lab/      # Lab 1 specific images
-│   ├── src/          # Lab 1 source code
-│   └── submission/   # Lab 1 generated PDF and ZIP
+├── labreport.json         # Project configuration
+├── lib.typ                # Template library
+├── functions.typ          # Useful functions for config var generation
+├── README.md              # Summary file with instructions
+├── flake.nix              # Nix flake for development environment
+├── img/fixed/             # Fixed image assets
+├── l1/                    # Lab 1 directory
+│   ├── report.typ         # Lab 1 report file
+│   ├── bibliography.bib   # Lab 1 bibliography file for references
+│   ├── guide/             # Lab 1 guide and instructions
+│   ├── snippets/          # Lab 1 code snippets for the report directory
+│   ├── img/lab/           # Lab 1 specific images
+│   ├── src/               # Lab 1 source code
+│   └── submission/        # Lab 1 generated PDF and ZIP
 └── l2/
     ├── report.typ
     └── ...
@@ -163,7 +166,11 @@ The `labreport.json` file in your project root controls the behavior of the tool
 - `capture`:
   - `freezeFlags`: (array of strings) Additional flags to pass to `freeze` during capture.
   - `prompt`: (string) The prompt character to use (default: `❯ `).
-  - `colors`: (object) ANSI color codes for `prompt`, `command`, `args`, and `reset`.
+  - `colors`: (object) ANSI color codes for syntax highlighting during capture:
+    - `prompt`: Color for the prompt character.
+    - `command`: Color for the first word of a command.
+    - `args`: Color for the rest of the command arguments.
+    - `reset`: ANSI code to reset formatting (usually `0`).
 - `prepare`:
   - `input`:
     - `srcDir`: (string) The directory containing your source code. Defaults to `src`.

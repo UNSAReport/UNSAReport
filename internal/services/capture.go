@@ -81,6 +81,21 @@ func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error
 			}
 		}
 
+		if after, ok := strings.CutPrefix(instr, "r:"); ok {
+			commands = append(commands, ports.CaptureCommand{Type: "Raw", Args: after})
+			continue
+		}
+
+		if after, ok := strings.CutPrefix(instr, "c:"); ok {
+			commands = append(commands, ports.CaptureCommand{Type: "Ctrl", Args: after})
+			continue
+		}
+
+		if after, ok := strings.CutPrefix(instr, "k:"); ok {
+			commands = append(commands, ports.CaptureCommand{Type: "Key", Args: after})
+			continue
+		}
+
 		commands = append(commands, ports.CaptureCommand{Type: "Command", Args: instr})
 		commands = append(commands, ports.CaptureCommand{Type: "Sleep", Delay: 1 * time.Second})
 	}

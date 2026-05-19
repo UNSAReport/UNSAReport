@@ -8,12 +8,12 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aymanbagabas/go-pty"
 	"github.com/christianmz565/lab-report/internal/dependencies"
 	"github.com/christianmz565/lab-report/internal/ports"
+	"github.com/taigrr/bubbleterm/emulator"
 )
 
 type Adapter struct{}
@@ -88,6 +88,49 @@ func getDefaultShell() (string, []string) {
 	return shell, []string{"--norc", "--noprofile"}
 }
 
+func getAnsi(colors map[string]string, name string) string {
+	if colors == nil {
+		if name == "reset" {
+			return "\x1b[0m"
+		}
+		return ""
+	}
+	code, ok := colors[name]
+	if !ok {
+		if name == "reset" {
+			return "\x1b[0m"
+		}
+		return ""
+	}
+	if code == "0" {
+		return "\x1b[0m"
+	}
+	return "\x1b[" + code + "m"
+}
+
+func typeColored(ptmx io.Writer, vtWrite io.Writer, cmdStr string, cfg ports.CaptureConfig) {
+	cCol := getAnsi(cfg.Colors, "command")
+	aCol := getAnsi(cfg.Colors, "args")
+	rCol := getAnsi(cfg.Colors, "reset")
+
+	parts := strings.SplitN(cmdStr, " ", 2)
+	firstWord := parts[0]
+	rest := ""
+	if len(parts) > 1 {
+		rest = " " + parts[1]
+	}
+
+	vtWrite.Write([]byte(cCol))
+	ptmx.Write([]byte(firstWord))
+	if rest != "" {
+		time.Sleep(20 * time.Millisecond)
+		vtWrite.Write([]byte(aCol))
+		ptmx.Write([]byte(rest))
+	}
+	time.Sleep(20 * time.Millisecond)
+	vtWrite.Write([]byte(rCol))
+}
+
 func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.CaptureConfig) (string, error) {
 	shell, args := getDefaultShell()
 
@@ -106,61 +149,91 @@ func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.Capt
 		return "", err
 	}
 
-	if err := ptmx.Resize(100, 30); err != nil {
+	if err := ptmx.Resize(100, 500); err != nil {
 		return "", err
 	}
 
-	io.WriteString(ptmx, "echo ---READY---\r")
+	vtRead, vtWrite := io.Pipe()
+	emu, err := emulator.NewFromPipes(100, 500, vtRead, ptmx)
+	if err != nil {
+		return "", err
+	}
+	defer emu.Close()
+
+	go io.Copy(vtWrite, ptmx)
+
+	prompt := cfg.Prompt
+	if prompt == "" {
+		prompt = "❯ "
+	}
+
+	pCol := getAnsi(cfg.Colors, "prompt")
+	rCol := getAnsi(cfg.Colors, "reset")
+
 	if runtime.GOOS == "windows" {
-		io.WriteString(ptmx, "function prompt { \"\" }\r")
+		styledPrompt := pCol + prompt + rCol
+		io.WriteString(ptmx, fmt.Sprintf("function prompt { \"%s\" }\r", styledPrompt))
+		io.WriteString(ptmx, "Clear-Host\r")
 	} else {
-		io.WriteString(ptmx, "export PS1=\"\"\r")
-		io.WriteString(ptmx, "stty -echo\r")
+		io.WriteString(ptmx, fmt.Sprintf("export PS1='\\[\\e[%sm\\]%s\\[\\e[0m\\]'\r", cfg.Colors["prompt"], prompt))
+		io.WriteString(ptmx, "clear\r")
 	}
 
 	time.Sleep(500 * time.Millisecond)
 
-	readyFound := false
-	drainBuf := make([]byte, 1024)
-	for !readyFound {
-		n, err := ptmx.Read(drainBuf)
-		if err != nil {
+	io.WriteString(ptmx, "echo ---START---\r")
+
+	anchorFound := false
+	for i := 0; i < 20; i++ {
+		frame := emu.GetScreen()
+		for _, row := range frame.Rows {
+			if strings.Contains(row, "---START---") {
+				anchorFound = true
+				break
+			}
+		}
+		if anchorFound {
 			break
 		}
-		if strings.Contains(string(drainBuf[:n]), "---READY---") {
-			readyFound = true
-		}
+		time.Sleep(100 * time.Millisecond)
 	}
-
-	time.Sleep(200 * time.Millisecond)
-
-	var buf strings.Builder
-	var mu sync.Mutex
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		tmp := make([]byte, 1024)
-		for {
-			n, err := ptmx.Read(tmp)
-			if err != nil {
-				return
-			}
-			mu.Lock()
-			buf.Write(tmp[:n])
-			mu.Unlock()
-		}
-	}()
 
 	for _, cmd := range commands {
 		switch cmd.Type {
 		case "Command":
-			mu.Lock()
-			buf.WriteString(formatPrompt(cmd.Args, cfg))
-			mu.Unlock()
-			io.WriteString(ptmx, cmd.Args+"\r")
+			typeColored(ptmx, vtWrite, cmd.Args, cfg)
+			io.WriteString(ptmx, "\r")
 			time.Sleep(500 * time.Millisecond)
 		case "Type":
+			typeColored(ptmx, vtWrite, cmd.Args, cfg)
+			time.Sleep(100 * time.Millisecond)
+		case "Enter":
+			io.WriteString(ptmx, "\r")
+			time.Sleep(500 * time.Millisecond)
+		case "Raw":
 			io.WriteString(ptmx, cmd.Args)
+			time.Sleep(100 * time.Millisecond)
+		case "Ctrl":
+			if len(cmd.Args) > 0 {
+				char := strings.ToLower(cmd.Args)[0]
+				if char >= 'a' && char <= 'z' {
+					ctrlChar := char - 'a' + 1
+					io.WriteString(ptmx, string([]byte{ctrlChar}))
+				}
+			}
+			time.Sleep(500 * time.Millisecond)
+		case "Key":
+			switch strings.ToLower(cmd.Args) {
+			case "enter":
+				io.WriteString(ptmx, "\r")
+			case "tab":
+				io.WriteString(ptmx, "\t")
+			case "backspace":
+				io.WriteString(ptmx, "\x7f")
+			case "escape", "esc":
+				io.WriteString(ptmx, "\x1b")
+			}
+			time.Sleep(500 * time.Millisecond)
 		case "Sleep":
 			time.Sleep(cmd.Delay)
 		}
@@ -168,70 +241,40 @@ func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.Capt
 
 	time.Sleep(500 * time.Millisecond)
 
-	io.WriteString(ptmx, "exit\r")
+	done := make(chan struct{})
+	go func() {
+		c.Wait()
+		close(done)
+	}()
+
+	ptmx.Close()
 
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
-		ptmx.Close()
 	}
 
-	waitErr := c.Wait()
+	frame := emu.GetScreen()
 
-	return buf.String(), waitErr
-}
-
-func formatPrompt(cmdStr string, cfg ports.CaptureConfig) string {
-	prompt := cfg.Prompt
-	if prompt == "" {
-		prompt = "❯ "
-	}
-	colors := cfg.Colors
-
-	getAnsi := func(name string) string {
-		if colors == nil {
-			if name == "reset" {
-				return "\x1b[0m"
-			}
-			return ""
+	startRow := 0
+	for i, row := range frame.Rows {
+		if strings.Contains(row, "---START---") {
+			startRow = i + 1
 		}
-		code, ok := colors[name]
-		if !ok {
-			if name == "reset" {
-				return "\x1b[0m"
-			}
-			return ""
+	}
+
+	lastIdx := -1
+	for i := len(frame.Rows) - 1; i >= startRow; i-- {
+		clean := strings.ReplaceAll(frame.Rows[i], "\033[0m", "")
+		if strings.TrimSpace(clean) != "" {
+			lastIdx = i
+			break
 		}
-		if code == "0" {
-			return "\x1b[0m"
-		}
-		return "\x1b[" + code + "m"
 	}
 
-	pCol := getAnsi("prompt")
-	cCol := getAnsi("command")
-	aCol := getAnsi("args")
-	rCol := getAnsi("reset")
-
-	parts := strings.SplitN(cmdStr, " ", 2)
-	firstWord := parts[0]
-	rest := ""
-	if len(parts) > 1 {
-		rest = " " + parts[1]
+	if lastIdx == -1 || lastIdx < startRow {
+		return "", nil
 	}
 
-	var sb strings.Builder
-	sb.WriteString(pCol)
-	sb.WriteString(prompt)
-	sb.WriteString(rCol)
-	sb.WriteString(cCol)
-	sb.WriteString(firstWord)
-	sb.WriteString(rCol)
-	if rest != "" {
-		sb.WriteString(aCol)
-		sb.WriteString(rest)
-		sb.WriteString(rCol)
-	}
-	sb.WriteString("\n")
-	return sb.String()
+	return strings.Join(frame.Rows[startRow:lastIdx+1], "\n") + "\n", nil
 }

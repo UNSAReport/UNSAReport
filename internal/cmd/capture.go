@@ -27,11 +27,17 @@ resulting output. It applies custom prompt formatting defined in the labreport.j
 Instructions are processed sequentially:
 - Regular text: Typed into the terminal followed by Enter.
 - "w:<duration>": Delays execution (e.g., "w:2s", "w:500ms").
+- "r:<text>": Writes text directly without Enter.
+- "c:<key>": Sends Ctrl + key combination (e.g., "c:c" for Ctrl+C).
+- "k:<key>": Sends a control key (e.g., "k:enter", "k:tab", "k:backspace", "k:esc").
 
 A raw log of the session (including ANSI colors) is automatically saved in
 the capture_logs/ directory as a .log file.`,
 		Example: `  # Simple capture
   lab-report capture output.png "ls -la" "cat README.md"
+
+  # Using control characters and raw input
+  lab-report capture output.png "python" "print('hello')" "k:enter" "c:d"
 
   # With custom directory and delays
   lab-report capture --cwd ./src result.png "python" "print('hello')" "w:1s"`,

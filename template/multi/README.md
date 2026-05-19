@@ -17,7 +17,9 @@ You can customize the project structure in `labreport.json`:
 - `prepare.input.reportFile`: Main report filename in each lab directory.
 - `prepare.input.srcDir`: Source code directory in each lab directory.
 - `prepare.output.submissionDir`: Output directory for each lab.
-- `capture.freezeFlags`: Shared additional flags for terminal capture.
+- `capture.freezeFlags`: List of additional flags for terminal capture (e.g., `["--theme", "dracula"]`).
+- `capture.prompt`: The prompt character to use (e.g., `❯ `).
+- `capture.colors`: Shared ANSI color codes (`prompt`, `command`, `args`, `reset`).
 
 ## Typst Template Features
 
@@ -98,3 +100,6 @@ lab-report capture output.png "python l1/src/main.py"
 - Text arguments are typed into the terminal followed by `Enter`.
 - Arguments prefixed with `w:` are interpreted as a wait/sleep:
   - `w:<duration>` (e.g., `w:2s`, `w:500ms`)
+- Arguments prefixed with `r:` write the raw text after it without pressing Enter.
+- Arguments prefixed with `c:` send a Ctrl + <key> combination (e.g., `c:c` for Ctrl+C).
+- Arguments prefixed with `k:` send a specific control key (e.g., `k:enter`, `k:tab`, `k:backspace`, `k:escape`, `k:esc`).

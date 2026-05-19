@@ -65,9 +65,9 @@ func (a *Adapter) ReadConfig(destDir string) (ports.LabReportConfig, bool, error
 	}
 	if cfg.Capture.Colors == nil {
 		cfg.Capture.Colors = map[string]string{
-			"prompt":  "38;5;114",
-			"command": "38;5;111",
-			"args":    "38;5;217",
+			"prompt":  "32",
+			"command": "36",
+			"args":    "33",
 			"reset":   "0",
 		}
 	}
