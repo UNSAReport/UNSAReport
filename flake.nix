@@ -37,7 +37,7 @@
           src = ./.;
           subPackages = [ "cmd/lab-report" ];
 
-          vendorHash = "sha256-xVriwYwOc3bFMLWFIYJ4419WvAQtEU7AKV8TSgfZtco=";
+          vendorHash = "sha256-BRYaJVVhOCx10aqr2Vju1p1LbD5JMJ6UVnaPZu7Ss5Q=";
 
           nativeBuildInputs = [
             pkgs.pkg-config
@@ -51,7 +51,8 @@
               --prefix PATH : ${
                 pkgs.lib.makeBinPath [
                   pkgs.typst
-                  pkgs.vhs
+                  pkgs.charm-freeze
+                  pkgs.imagemagick
                 ]
               }
           '';
@@ -85,7 +86,8 @@
             tinymist
 
             fontconfig
-            vhs
+            charm-freeze
+            imagemagick
           ];
 
           buildInputs = [ pkgs.bashInteractive ];

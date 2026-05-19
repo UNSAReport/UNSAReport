@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -25,28 +24,29 @@ func NewCaptureService(r ports.Renderer, fs ports.FileSystem, c ports.ConfigStor
 	}
 }
 
-func (s *CaptureService) Execute(ctx context.Context, tapeFile, cwdFlag string, args []string) error {
+type CaptureOptions struct {
+	Cwd             string
+	Args            []string
+	FreezeFlags     []string
+	SaveFreezeFlags bool
+}
+
+func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {
 		return fmt.Errorf("get cwd: %w", err)
 	}
 
-	projectRoot, cfg, ok, err := s.Config.FindProjectRoot(cwd)
+	projectRoot, cfg, ok, _ := s.Config.FindProjectRoot(cwd)
 	if !ok {
 		projectRoot = cwd
-		cfg = ports.LabReportConfig{
-			Prepare: ports.PrepareConfig{
-				Input: ports.PrepareInputConfig{
-					SrcDir:     "src",
-					ReportFile: "report.typ",
-				},
-				Output: ports.PrepareOutputConfig{
-					SubmissionDir: "submission",
-				},
-			},
-			Capture: ports.CaptureConfig{
-				TapeConfig: "config.tape",
-			},
+		cfg, _, _ = s.Config.ReadConfig(cwd)
+	}
+
+	if opts.SaveFreezeFlags {
+		cfg.Capture.FreezeFlags = opts.FreezeFlags
+		if err := s.Config.WriteConfig(projectRoot, cfg); err != nil {
+			return fmt.Errorf("save config: %w", err)
 		}
 	}
 
@@ -54,72 +54,76 @@ func (s *CaptureService) Execute(ctx context.Context, tapeFile, cwdFlag string, 
 		return fmt.Errorf("chdir to project root: %w", err)
 	}
 
-	var tapePathToRun string
+	if len(opts.Args) < 1 {
+		return fmt.Errorf("result image path is required")
+	}
+	resultPath := opts.Args[0]
+	instructions := opts.Args[1:]
 
-	if tapeFile != "" {
-		tapePathAbs := filepath.Join(cwd, tapeFile)
-		if !filepath.IsAbs(tapePathAbs) {
-			var err error
-			tapePathAbs, err = filepath.Abs(tapePathAbs)
-			if err != nil {
-				return fmt.Errorf("abs path: %w", err)
-			}
-		}
-		tapePathToRun = tapePathAbs
-	} else {
-		if len(args) < 1 {
-			return fmt.Errorf("result image path is required in oneshot mode")
-		}
-		resultPath := args[0]
-		instructions := args[1:]
+	var commands []ports.CaptureCommand
 
-		var b strings.Builder
-
-		if s.FS.FileExists(cfg.Capture.TapeConfig) {
-			b.WriteString(fmt.Sprintf("Source %s\n\n", cfg.Capture.TapeConfig))
-		}
-
-		if cwdFlag != "" {
-			b.WriteString(fmt.Sprintf("Type \"cd %s\"\nEnter\nType \"clear\"\nEnter\n\n", cwdFlag))
-		}
-
-		for _, instr := range instructions {
-			if strings.HasPrefix(instr, "tape:") {
-				b.WriteString(strings.TrimPrefix(instr, "tape:") + "\n")
-			} else if strings.HasPrefix(instr, "\\tape:") {
-				b.WriteString(fmt.Sprintf("Type \"%s\"\nEnter\nSleep 2\n", strings.ReplaceAll(instr[1:], "\"", "\\\"")))
-			} else {
-				b.WriteString(fmt.Sprintf("Type \"%s\"\nEnter\nSleep 2\n", strings.ReplaceAll(instr, "\"", "\\\"")))
-			}
-		}
-
-		timestamp := time.Now().Format("02-01-2006_15-04-05")
-		logPath := filepath.Join("capture_logs", timestamp+".ascii")
-
-		if err := s.FS.EnsureDir("capture_logs"); err != nil {
-			return fmt.Errorf("ensure capture_logs directory: %w", err)
-		}
-
-		b.WriteString(fmt.Sprintf("\nOutput %s\nScreenshot %s\nSleep 1\n", logPath, resultPath))
-
-		tempFile, err := os.CreateTemp("", "lab-report-capture-*.tape")
-		if err != nil {
-			return fmt.Errorf("create temp tape file: %w", err)
-		}
-		defer os.Remove(tempFile.Name())
-
-		if _, err := tempFile.WriteString(b.String()); err != nil {
-			return fmt.Errorf("write temp tape file: %w", err)
-		}
-		if err := tempFile.Close(); err != nil {
-			return fmt.Errorf("close temp tape file: %w", err)
-		}
-
-		tapePathToRun = tempFile.Name()
+	if opts.Cwd != "" {
+		commands = append(commands, ports.CaptureCommand{Type: "Type", Args: fmt.Sprintf("cd %s", opts.Cwd)})
+		commands = append(commands, ports.CaptureCommand{Type: "Enter"})
+		commands = append(commands, ports.CaptureCommand{Type: "Type", Args: "clear"})
+		commands = append(commands, ports.CaptureCommand{Type: "Enter"})
 	}
 
-	if err := s.Renderer.Render(ctx, tapePathToRun); err != nil {
-		return fmt.Errorf("render tape: %w", err)
+	for _, instr := range instructions {
+		if after, ok := strings.CutPrefix(instr, "w:"); ok {
+			d, err := time.ParseDuration(after)
+			if err != nil {
+				d, err = time.ParseDuration(after + "ms")
+				if err != nil {
+					d, err = time.ParseDuration(after + "s")
+				}
+			}
+			if err == nil {
+				commands = append(commands, ports.CaptureCommand{Type: "Sleep", Delay: d})
+				continue
+			}
+		}
+
+		if after, ok := strings.CutPrefix(instr, "r:"); ok {
+			commands = append(commands, ports.CaptureCommand{Type: "Raw", Args: after})
+			commands = append(commands, ports.CaptureCommand{Type: "Sleep", Delay: 1 * time.Second})
+			continue
+		}
+
+		if after, ok := strings.CutPrefix(instr, "c:"); ok {
+			commands = append(commands, ports.CaptureCommand{Type: "Ctrl", Args: after})
+			commands = append(commands, ports.CaptureCommand{Type: "Sleep", Delay: 1 * time.Second})
+			continue
+		}
+
+		if after, ok := strings.CutPrefix(instr, "k:"); ok {
+			commands = append(commands, ports.CaptureCommand{Type: "Key", Args: after})
+			commands = append(commands, ports.CaptureCommand{Type: "Sleep", Delay: 1 * time.Second})
+			continue
+		}
+
+		commands = append(commands, ports.CaptureCommand{Type: "Command", Args: instr})
+		commands = append(commands, ports.CaptureCommand{Type: "Sleep", Delay: 1 * time.Second})
+	}
+
+	commands = append(commands, ports.CaptureCommand{Type: "Sleep", Delay: 1 * time.Second})
+
+	var finalFlags []string
+	if opts.SaveFreezeFlags {
+		finalFlags = cfg.Capture.FreezeFlags
+	} else {
+		finalFlags = append(cfg.Capture.FreezeFlags, opts.FreezeFlags...)
+	}
+
+	output, err := s.Renderer.Render(ctx, resultPath, commands, finalFlags, cfg.Capture)
+	if err != nil {
+		return fmt.Errorf("render: %w", err)
+	}
+
+	if err := s.FS.EnsureDir("capture_logs"); err == nil {
+		timestamp := time.Now().Format("02-01-2006_15-04-05")
+		logPath := filepath.Join("capture_logs", timestamp+".log")
+		s.FS.WriteFileAtomic(logPath, []byte(output), 0644)
 	}
 
 	return nil

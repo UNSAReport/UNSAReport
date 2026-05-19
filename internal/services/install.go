@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/christianmz565/lab-report/internal/ports"
@@ -61,9 +62,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 					SubmissionDir: "submission",
 				},
 			},
-			Capture: ports.CaptureConfig{
-				TapeConfig: "config.tape",
-			},
+			Capture: ports.CaptureConfig{},
 		}
 	}
 
@@ -121,14 +120,8 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		if err := s.applyEntriesInstall(files, destDir, labEntriesExpanded); err != nil {
 			return err
 		}
-		
-		sessionFound := false
-		for _, s := range cfg.Sessions {
-			if s == lab {
-				sessionFound = true
-				break
-			}
-		}
+
+		sessionFound := slices.Contains(cfg.Sessions, lab)
 		if !sessionFound {
 			cfg.Sessions = append(cfg.Sessions, lab)
 		}

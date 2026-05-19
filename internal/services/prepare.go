@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -110,7 +111,7 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 	}
 
 	zipPath := filepath.Join(submissionDir, codeFile)
-	_ = s.FS.Remove(zipPath)
+	s.FS.Remove(zipPath)
 
 	fmt.Fprintf(os.Stdout, "Archiving %s to %s...\n", srcDir, zipPath)
 	files, err := s.listGitFiles(ctx, srcDir)
@@ -211,13 +212,7 @@ func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareCo
 		pctx.labDir = parts[0]
 	}
 
-	sessionValid := false
-	for _, s := range pctx.cfg.Sessions {
-		if s == pctx.labDir {
-			sessionValid = true
-			break
-		}
-	}
+	sessionValid := slices.Contains(pctx.cfg.Sessions, pctx.labDir)
 	if !sessionValid {
 		return pctx, fmt.Errorf("session '%s' is not registered in labreport.json", pctx.labDir)
 	}

@@ -34,16 +34,23 @@ func (a *Adapter) FindProjectRoot(startDir string) (string, ports.LabReportConfi
 func (a *Adapter) ReadConfig(destDir string) (ports.LabReportConfig, bool, error) {
 	path := filepath.Join(destDir, "labreport.json")
 	var cfg ports.LabReportConfig
+
+	found := true
 	b, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return cfg, false, nil
+			found = false
+		} else {
+			return ports.LabReportConfig{}, false, fmt.Errorf("read file: %w", err)
 		}
-		return ports.LabReportConfig{}, false, fmt.Errorf("read file: %w", err)
 	}
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		return ports.LabReportConfig{}, true, fmt.Errorf("failed to parse labreport.json: %w", err)
+
+	if found {
+		if err := json.Unmarshal(b, &cfg); err != nil {
+			return ports.LabReportConfig{}, true, fmt.Errorf("failed to parse labreport.json: %w", err)
+		}
 	}
+
 	if cfg.Prepare.Input.SrcDir == "" {
 		cfg.Prepare.Input.SrcDir = "src"
 	}
@@ -53,10 +60,18 @@ func (a *Adapter) ReadConfig(destDir string) (ports.LabReportConfig, bool, error
 	if cfg.Prepare.Input.ReportFile == "" {
 		cfg.Prepare.Input.ReportFile = "report.typ"
 	}
-	if cfg.Capture.TapeConfig == "" {
-		cfg.Capture.TapeConfig = "config.tape"
+	if cfg.Capture.Prompt == "" {
+		cfg.Capture.Prompt = "❯ "
 	}
-	return cfg, true, nil
+	if cfg.Capture.Colors == nil {
+		cfg.Capture.Colors = map[string]string{
+			"prompt":  "32",
+			"command": "36",
+			"args":    "33",
+			"reset":   "0",
+		}
+	}
+	return cfg, found, nil
 }
 
 func (a *Adapter) WriteConfig(destDir string, cfg ports.LabReportConfig) error {
