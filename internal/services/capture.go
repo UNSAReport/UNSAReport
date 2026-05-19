@@ -73,7 +73,10 @@ func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error
 		if after, ok := strings.CutPrefix(instr, "w:"); ok {
 			d, err := time.ParseDuration(after)
 			if err != nil {
-				d, err = time.ParseDuration(after + "s")
+				d, err = time.ParseDuration(after + "ms")
+				if err != nil {
+					d, err = time.ParseDuration(after + "s")
+				}
 			}
 			if err == nil {
 				commands = append(commands, ports.CaptureCommand{Type: "Sleep", Delay: d})
