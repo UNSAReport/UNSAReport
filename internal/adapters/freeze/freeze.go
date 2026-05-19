@@ -184,7 +184,7 @@ func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.Capt
 	io.WriteString(ptmx, "echo ---START---\r")
 
 	anchorFound := false
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		frame := emu.GetScreen()
 		for _, row := range frame.Rows {
 			if strings.Contains(row, "---START---") {
@@ -218,7 +218,7 @@ func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.Capt
 				char := strings.ToLower(cmd.Args)[0]
 				if char >= 'a' && char <= 'z' {
 					ctrlChar := char - 'a' + 1
-					io.WriteString(ptmx, string([]byte{ctrlChar}))
+					ptmx.Write([]byte{ctrlChar})
 				}
 			}
 			time.Sleep(500 * time.Millisecond)
@@ -239,22 +239,20 @@ func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.Capt
 		}
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
+	frame := emu.GetScreen()
+	ptmx.Close()
 
 	done := make(chan struct{})
 	go func() {
-		c.Wait()
+		_ = c.Wait()
 		close(done)
 	}()
-
-	ptmx.Close()
 
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
 	}
-
-	frame := emu.GetScreen()
 
 	startRow := 0
 	for i, row := range frame.Rows {
