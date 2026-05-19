@@ -231,7 +231,7 @@
     let gen-time = datetime.today()
     let resolved-year = get-var("year", default: gen-time.year())
     let resolved-presentation-date = get-var("presentation_date", default: gen-time.display("[day]/[month]/[year]"))
-    let sem-code = get-var("sem_code", default: if gen-time.month() >= 8 { "A" } else { "B" })
+    let sem-code = get-var("sem_code", default: if gen-time.month() < 8 { "A" } else { "B" })
     let presentation-hour = get-var("presentation_hour", default: "11:59:00")
 
     set text(font: "Lato")
