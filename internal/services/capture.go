@@ -50,15 +50,15 @@ func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error
 		}
 	}
 
-	if err := s.FS.Chdir(projectRoot); err != nil {
-		return fmt.Errorf("chdir to project root: %w", err)
-	}
-
 	if len(opts.Args) < 1 {
 		return fmt.Errorf("result image path is required")
 	}
 	resultPath := opts.Args[0]
 	instructions := opts.Args[1:]
+
+	if err := s.FS.EnsureDir(filepath.Dir(resultPath)); err != nil {
+		return fmt.Errorf("ensure result directory: %w", err)
+	}
 
 	var commands []ports.CaptureCommand
 
@@ -70,6 +70,7 @@ func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error
 	}
 
 	for _, instr := range instructions {
+		fmt.Printf("Capturing instruction: %s\n", instr)
 		if after, ok := strings.CutPrefix(instr, "w:"); ok {
 			d, err := time.ParseDuration(after)
 			if err != nil {
