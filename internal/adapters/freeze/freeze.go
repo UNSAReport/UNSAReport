@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,7 +31,10 @@ func (a *Adapter) Render(ctx context.Context, resultPath string, commands []port
 		return "", err
 	}
 
-	output, err := runInPTY(ctx, commands, cfg)
+	width := cfg.Columns
+	height := 500
+
+	output, err := runInPTY(ctx, commands, cfg, width, height)
 	if err != nil && output == "" {
 		return "", fmt.Errorf("run in pty: %w", err)
 	}
@@ -53,6 +57,7 @@ func (a *Adapter) Render(ctx context.Context, resultPath string, commands []port
 	freezeArgs := []string{
 		tempInput.Name(),
 		"--language", "ansi",
+		"--wrap", strconv.Itoa(width),
 		"--output", svgPath,
 	}
 	freezeArgs = append(freezeArgs, flags...)
@@ -131,7 +136,7 @@ func typeColored(ptmx io.Writer, vtWrite io.Writer, cmdStr string, cfg ports.Cap
 	vtWrite.Write([]byte(rCol))
 }
 
-func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.CaptureConfig) (string, error) {
+func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.CaptureConfig, width, height int) (string, error) {
 	shell, args := getDefaultShell()
 
 	ptmx, err := pty.New()
@@ -149,12 +154,12 @@ func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.Capt
 		return "", err
 	}
 
-	if err := ptmx.Resize(100, 500); err != nil {
+	if err := ptmx.Resize(width, height); err != nil {
 		return "", err
 	}
 
 	vtRead, vtWrite := io.Pipe()
-	emu, err := emulator.NewFromPipes(100, 500, vtRead, ptmx)
+	emu, err := emulator.NewFromPipes(width, height, vtRead, ptmx)
 	if err != nil {
 		return "", err
 	}

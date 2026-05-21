@@ -7,7 +7,7 @@ import (
 	"github.com/christianmz565/lab-report/internal/adapters/freeze"
 	"github.com/christianmz565/lab-report/internal/adapters/osfs"
 	"github.com/christianmz565/lab-report/internal/services"
-	"github.com/mattn/go-shellwords"
+	"github.com/kballard/go-shellquote"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +22,8 @@ func newCaptureCmd() *cobra.Command {
 		Long: `Capture terminal output and render it to a PNG using charmbracelet/freeze and ImageMagick.
 
 This command executes terminal instructions directly in a virtual terminal and captures the
-resulting output. It applies custom prompt formatting defined in the labreport.json configuration.
+resulting output. It applies custom prompt formatting and terminal width (columns) defined 
+in the labreport.json configuration.
 
 Instructions are processed sequentially:
 - Regular text: Typed into the terminal followed by Enter.
@@ -51,9 +52,9 @@ the capture_logs/ directory as a .log file.`,
 			cfg := config.New()
 
 			var parsedFlags []string
+			var err error
 			if freezeFlags != "" {
-				var err error
-				parsedFlags, err = shellwords.Parse(freezeFlags)
+				parsedFlags, err = shellquote.Split(freezeFlags)
 				if err != nil {
 					return fmt.Errorf("parse freeze-flags: %w", err)
 				}

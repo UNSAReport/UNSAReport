@@ -5,9 +5,10 @@ go 1.26.2
 require (
 	github.com/aymanbagabas/go-pty v0.2.3
 	github.com/charmbracelet/huh v1.0.0
-	github.com/mattn/go-shellwords v1.0.13
+	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/sergi/go-diff v1.4.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.9
 	github.com/taigrr/bubbleterm v0.2.0
 )
 
@@ -48,7 +49,6 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/u-root/u-root v0.16.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect

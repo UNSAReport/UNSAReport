@@ -164,6 +164,7 @@ The `labreport.json` file in your project root controls the behavior of the tool
 - `multiLab`: (boolean) Indicates if the project is a multi-lab setup.
 - `sessions`: (array of strings) List of registered session directories (e.g., `["l1", "l2"]`) in a multi-lab setup. Managed automatically by `install --session`.
 - `capture`:
+  - `columns`: (integer) The width of the terminal in characters (default: `120`).
   - `freezeFlags`: (array of strings) Additional flags to pass to `freeze` during capture.
   - `prompt`: (string) The prompt character to use (default: `❯ `).
   - `colors`: (object) ANSI color codes for syntax highlighting during capture:

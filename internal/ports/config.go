@@ -1,21 +1,22 @@
 package ports
 
 type CaptureConfig struct {
-	FreezeFlags []string          `json:"freezeFlags,omitempty"`
-	Prompt      string            `json:"prompt,omitempty"`
-	Colors      map[string]string `json:"colors,omitempty"`
+	Columns     int               `json:"columns"`
+	FreezeFlags []string          `json:"freezeFlags"`
+	Prompt      string            `json:"prompt"`
+	Colors      map[string]string `json:"colors"`
 }
 
 type PrepareInputConfig struct {
-	SrcDir     string `json:"srcDir,omitempty"`
-	ReportFile string `json:"reportFile,omitempty"`
+	SrcDir     string `json:"srcDir"`
+	ReportFile string `json:"reportFile"`
 }
 
 type PrepareOutputConfig struct {
-	SubmissionDir string `json:"submissionDir,omitempty"`
-	FileTemplate  string `json:"fileTemplate,omitempty"`
-	ReportWord    string `json:"reportWord,omitempty"`
-	CodeWord      string `json:"codeWord,omitempty"`
+	SubmissionDir string `json:"submissionDir"`
+	FileTemplate  string `json:"fileTemplate"`
+	ReportWord    string `json:"reportWord"`
+	CodeWord      string `json:"codeWord"`
 }
 
 type PrepareConfig struct {
@@ -25,7 +26,7 @@ type PrepareConfig struct {
 
 type LabReportConfig struct {
 	MultiLab bool          `json:"multiLab"`
-	Sessions []string      `json:"sessions,omitempty"`
+	Sessions []string      `json:"sessions"`
 	Capture  CaptureConfig `json:"capture"`
 	Prepare  PrepareConfig `json:"prepare"`
 }

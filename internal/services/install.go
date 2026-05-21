@@ -53,6 +53,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	} else {
 		cfg = ports.LabReportConfig{
 			MultiLab: opt.Multi,
+			Sessions: []string{},
 			Prepare: ports.PrepareConfig{
 				Input: ports.PrepareInputConfig{
 					SrcDir:     "src",
@@ -60,9 +61,22 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 				},
 				Output: ports.PrepareOutputConfig{
 					SubmissionDir: "submission",
+					FileTemplate:  "{output_type}_{lab_number}",
+					ReportWord:    "Informe",
+					CodeWord:      "Código Fuente",
 				},
 			},
-			Capture: ports.CaptureConfig{},
+			Capture: ports.CaptureConfig{
+				Columns:     120,
+				FreezeFlags: []string{},
+				Prompt:      "❯ ",
+				Colors: map[string]string{
+					"prompt":  "32",
+					"command": "36",
+					"args":    "33",
+					"reset":   "0",
+				},
+			},
 		}
 	}
 
