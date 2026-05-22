@@ -1,5 +1,8 @@
 # Lab Report CLI
 
+> [!WARNING]
+> This tool is particularly volatile as it is still being adapted to the actual needs to make work easier. It is very likely that some features are broken, don't exist, get removed randomly, or require manual intervention to work. Your best bet is to install the version in the dev branch, create an empty project and copy the latest labreport.json from it.
+
 A command-line interface designed to automate and manage laboratory reports for the UNSA Software Engineering career. This tool streamlines the process of scaffolding projects, updating templates, capturing terminal output, and preparing final submissions.
 
 ## Template Features
