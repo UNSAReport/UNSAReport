@@ -17,6 +17,7 @@ You can customize the project structure in `labreport.json`:
 - `prepare.input.srcDir`: Set this if your code is in a directory other than `src/`.
 - `prepare.output.submissionDir`: Change where the final files are generated.
 - `capture.freezeFlags`: List of additional flags for terminal capture (e.g., `["--theme", "dracula"]`).
+- `capture.columns`: The width of the terminal in characters (default: `120`).
 - `capture.prompt`: The prompt character to use (e.g., `❯ `).
 - `capture.colors`: ANSI color codes for terminal elements (`prompt`, `command`, `args`, `reset`).
 

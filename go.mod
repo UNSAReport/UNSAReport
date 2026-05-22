@@ -5,7 +5,7 @@ go 1.26.2
 require (
 	github.com/aymanbagabas/go-pty v0.2.3
 	github.com/charmbracelet/huh v1.0.0
-	github.com/mattn/go-shellwords v1.0.13
+	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/sergi/go-diff v1.4.0
 	github.com/spf13/cobra v1.10.2
 	github.com/taigrr/bubbleterm v0.2.0

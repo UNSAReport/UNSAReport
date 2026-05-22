@@ -63,6 +63,9 @@ func (a *Adapter) ReadConfig(destDir string) (ports.LabReportConfig, bool, error
 	if cfg.Capture.Prompt == "" {
 		cfg.Capture.Prompt = "❯ "
 	}
+	if cfg.Capture.Columns == 0 {
+		cfg.Capture.Columns = 120
+	}
 	if cfg.Capture.Colors == nil {
 		cfg.Capture.Colors = map[string]string{
 			"prompt":  "32",
