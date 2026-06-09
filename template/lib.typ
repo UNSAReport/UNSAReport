@@ -1,5 +1,3 @@
-#import "@preview/elembic:1.1.1" as e
-
 #let table-border-width = 0.5pt
 #let header-border-color = rgb("#808080")
 #let tb-header-bg-color = rgb("#C8310E")
@@ -7,6 +5,76 @@
 
 #let define(name, value) = {
   [#metadata((name: name, value: value)) <var_export>]
+}
+
+#let get-var(name, default: none) = {
+  let vars = query(<var_export>)
+  let match = vars.find(item => item.value.at("name") == name)
+  if match == none {
+    if default == none {
+      panic("Missing exported var: " + name)
+    }
+    return default
+  }
+  match.value.at("value")
+}
+
+#let abbreviate-by-caps(word, separator: "") = {
+  let chars = word.clusters()
+  let caps = chars.filter(c => c == upper(c) and c != lower(c))
+  caps.join(separator)
+}
+
+#let summarize-name(name, positions: (0, 2), separator: ",") = {
+  let parts = name.split(" ")
+  positions.map(pos => parts.at(pos)).join(separator)
+}
+
+// Configuration states
+#let code-block-state = state(
+  "code-block-config",
+  (
+    prefix: "//",
+    lang: "text",
+    fill: code-bg-color,
+    breakable: true,
+    width: 100%,
+    inset: 1em,
+    radius: 8pt,
+    spacing: 0.65em,
+    clip: false,
+    text-size: 7pt,
+  ),
+)
+
+#let code-block-config(..args) = {
+  code-block-state.update(old => {
+    let new = old
+    for (key, value) in args.named() {
+      new.insert(key, value)
+    }
+    new
+  })
+}
+
+#let lab-section-state = state(
+  "lab-section-config",
+  (
+    align-mode: left + top,
+    stroke: black + 1pt,
+    inset: 0.5em,
+    header-fill: tb-header-bg-color,
+  ),
+)
+
+#let lab-section-config(..args) = {
+  lab-section-state.update(old => {
+    let new = old
+    for (key, value) in args.named() {
+      new.insert(key, value)
+    }
+    new
+  })
 }
 
 #let extract-named-snippet(source, file, snippet-name, prefix) = {
@@ -38,81 +106,88 @@
   }
 }
 
-#let code-block = e.element.declare(
-  "code-block",
-  prefix: "@christianmz565/lab-report,v3",
-  doc: "Displays source code from a file in a formatted block.",
-  fields: (
-    e.field("file", str, required: true),
-    e.field("snippet", e.types.option(str), default: none),
-    e.field("prefix", str, default: "//"),
-    e.field("lang", str, default: "text"),
-    e.field("fill", e.types.option(e.types.paint), default: code-bg-color),
-    e.field("breakable", bool, default: true),
-    e.field("width", e.types.any, default: 100%),
-    e.field("inset", e.types.any, default: 1em),
-    e.field("radius", e.types.any, default: 8pt),
-    e.field("spacing", e.types.any, default: 0.65em),
-    e.field("clip", bool, default: false),
-    e.field("text-size", e.types.any, default: 7pt),
-  ),
-  display: it => {
-    let source = read(it.file)
-    let snippet-name = it.at("snippet")
-    let code = if snippet-name == none {
-      source
-    } else {
-      extract-named-snippet(source, it.file, snippet-name, it.at("prefix"))
-    }
+#let code-block(
+  file: none,
+  snippet: none,
+  prefix: none,
+  lang: none,
+  fill: none,
+  breakable: none,
+  width: none,
+  inset: none,
+  radius: none,
+  spacing: none,
+  clip: none,
+  text-size: none,
+) = context {
+  let config = code-block-state.get()
 
-    block(
-      fill: it.fill,
-      breakable: it.breakable,
-      width: it.width,
-      inset: it.inset,
-      radius: it.radius,
-      spacing: it.spacing,
-      clip: it.clip,
-    )[
-      #set text(size: it.at("text-size"))
-      #set par(justify: false)
-      #raw(code, lang: it.lang, block: true)
-    ]
-  },
-)
+  let p_prefix = if prefix != none { prefix } else { config.prefix }
+  let p_lang = if lang != none { lang } else { config.lang }
+  let p_fill = if fill != none { fill } else { config.fill }
+  let p_breakable = if breakable != none { breakable } else { config.breakable }
+  let p_width = if width != none { width } else { config.width }
+  let p_inset = if inset != none { inset } else { config.inset }
+  let p_radius = if radius != none { radius } else { config.radius }
+  let p_spacing = if spacing != none { spacing } else { config.spacing }
+  let p_clip = if clip != none { clip } else { config.clip }
+  let p_text_size = if text-size != none { text-size } else { config.text-size }
 
-#let lab-section = e.element.declare(
-  "lab-section",
-  prefix: "@christianmz565/lab-report,v3",
-  doc: "Displays a report section with a header bar.",
-  fields: (
-    e.field("title", content, required: true),
-    e.field("body", content, required: true),
-    e.field("align-mode", alignment, default: left + top),
-    e.field("stroke", e.types.any, default: black + 1pt),
-    e.field("inset", e.types.any, default: 0.5em),
-    e.field("header-fill", e.types.option(e.types.paint), default: tb-header-bg-color),
-  ),
-  display: it => grid(
-    align: it.at("align-mode"),
-    stroke: it.stroke,
-    inset: it.inset,
+  let source = read(file)
+  let code = if snippet == none {
+    source
+  } else {
+    extract-named-snippet(source, file, snippet, p_prefix)
+  }
+
+  block(
+    fill: p_fill,
+    breakable: p_breakable,
+    width: p_width,
+    inset: p_inset,
+    radius: p_radius,
+    spacing: p_spacing,
+    clip: p_clip,
+  )[
+    #set text(size: p_text_size)
+    #set par(justify: false)
+    #raw(code, lang: p_lang, block: true)
+  ]
+}
+
+#let lab-section(
+  title: [],
+  align-mode: none,
+  stroke: none,
+  inset: none,
+  header-fill: none,
+  body,
+) = context {
+  let config = lab-section-state.get()
+
+  let p_align_mode = if align-mode != none { align-mode } else { config.align-mode }
+  let p_stroke = if stroke != none { stroke } else { config.stroke }
+  let p_inset = if inset != none { inset } else { config.inset }
+  let p_header_fill = if header-fill != none { header-fill } else { config.header-fill }
+
+  grid(
+    align: p_align_mode,
+    stroke: p_stroke,
+    inset: p_inset,
     columns: 1fr,
     grid.header(
       repeat: false,
-      [#grid.cell(
-        fill: it.at("header-fill"),
-      )[
+      [#grid.cell(fill: p_header_fill)[
         #set text(size: 11pt, weight: "bold", fill: white)
-        #align(center)[#it.title]
+        #align(center)[#title]
       ]],
     ),
     [
       #set text(size: 8.5pt)
-      #it.body
+      #body
     ],
-  ),
-)
+  )
+}
 
 #let page-header() = block(
   width: 100%,
@@ -202,73 +277,97 @@
   )
 ]
 
-#let get-var(name, default: none) = {
-  let vars = query(<var_export>)
-  let match = vars.find(item => item.value.at("name") == name)
-  if match == none {
-    if default == none {
-      panic("Missing exported var: " + name)
-    }
-    return default
+#let lab-report(
+  course_name: none,
+  lab_title: none,
+  lab_number: none,
+  instructor_name: none,
+  members: (),
+  year: none,
+  presentation_date: none,
+  sem_code: none,
+  presentation_hour: "11:59:00",
+  ..custom_vars,
+  body,
+) = {
+  // Export metadata for CLI
+  define("course_name", course_name)
+  define("lab_title", lab_title)
+  define("lab_number", lab_number)
+  define("instructor_name", instructor_name)
+  define("members", members)
+
+  let gen-time = datetime.today()
+  let resolved-year = if year != none { year } else { gen-time.year() }
+  let resolved-presentation-date = if presentation_date != none {
+    presentation_date
+  } else {
+    gen-time.display("[day]/[month]/[year]")
   }
-  match.value.at("value")
+  let resolved-sem-code = if sem_code != none {
+    sem_code
+  } else {
+    if gen-time.month() < 8 { "A" } else { "B" }
+  }
+
+  define("year", resolved-year)
+  define("presentation_date", resolved-presentation-date)
+  define("sem_code", resolved-sem-code)
+  define("presentation_hour", presentation_hour)
+
+  // Custom vars export
+  for (name, value) in custom_vars.named() {
+    define(name, value)
+  }
+
+  // Derived vars export
+  let course_abbr = abbreviate-by-caps(course_name)
+  let shortnames_chain = members.map(name => summarize-name(name)).join("_")
+  let surnames_chain = members
+    .map(name => summarize-name(name, positions: (0,), separator: ""))
+    .join("-")
+  let wide_lab_number = numbering("001", int(lab_number))
+
+  define("course_abbr", course_abbr)
+  define("shortnames_chain", shortnames_chain)
+  define("surnames_chain", surnames_chain)
+  define("wide_lab_number", wide_lab_number)
+
+  // Layout
+  set text(font: "Lato")
+  show heading.where(level: 1): set text(size: 10pt)
+  show heading.where(level: 2): set text(size: 9pt)
+  set list(indent: 1em, marker: "-")
+  set enum(numbering: "1.")
+  set image(width: 90%)
+  set figure(supplement: [Figura])
+  show image: set align(center)
+
+  set page(
+    paper: "a4",
+    margin: (
+      top: 6cm,
+      bottom: 2.54cm,
+      left: 1.9cm,
+      right: 1.9cm,
+    ),
+    header: page-header(),
+    header-ascent: 5%,
+  )
+
+  align(center)[#text(size: 13pt, weight: "bold")[INFORME DE LABORATORIO]]
+
+  basic-info-table(
+    course_name,
+    lab_title,
+    lab_number,
+    resolved-year,
+    resolved-sem-code,
+    resolved-presentation-date,
+    presentation_hour,
+    members,
+    instructor_name,
+  )
+
+  body
 }
-
-#let lab-report = e.element.declare(
-  "lab-report",
-  prefix: "@christianmz565/lab-report,v3",
-  doc: "Main layout and metadata wrapper for EPIS lab reports.",
-  fields: (
-    e.field("body", content, required: true),
-  ),
-  display: it => context {
-    let course-name = get-var("course_name")
-    let lab-title = get-var("lab_title")
-    let lab-number = get-var("lab_number")
-    let instructor-name = get-var("instructor_name")
-    let member-list = get-var("members")
-
-    let gen-time = datetime.today()
-    let resolved-year = get-var("year", default: gen-time.year())
-    let resolved-presentation-date = get-var("presentation_date", default: gen-time.display("[day]/[month]/[year]"))
-    let sem-code = get-var("sem_code", default: if gen-time.month() < 8 { "A" } else { "B" })
-    let presentation-hour = get-var("presentation_hour", default: "11:59:00")
-
-    set text(font: "Lato")
-    show heading.where(level: 1): set text(size: 10pt)
-    show heading.where(level: 2): set text(size: 9pt)
-    set list(indent: 1em, marker: "-")
-    set enum(numbering: "1.")
-    set image(width: 90%)
-    set figure(supplement: [Figura])
-    show image: set align(center)
-
-    set page(
-      paper: "a4",
-      margin: (
-        top: 6cm,
-        bottom: 2.54cm,
-        left: 1.9cm,
-        right: 1.9cm,
-      ),
-      header: page-header(),
-      header-ascent: 5%,
-    )
-
-    align(center)[#text(size: 13pt, weight: "bold")[INFORME DE LABORATORIO]]
-
-    basic-info-table(
-      course-name,
-      lab-title,
-      lab-number,
-      resolved-year,
-      sem-code,
-      resolved-presentation-date,
-      presentation-hour,
-      member-list,
-      instructor-name,
-    )
-
-    it.body
-  },
-)

@@ -88,6 +88,9 @@
             fontconfig
             charm-freeze
             imagemagick
+
+            pnpm
+            nodejs
           ];
 
           buildInputs = [ pkgs.bashInteractive ];

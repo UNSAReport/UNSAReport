@@ -13,7 +13,8 @@
     { "kind": "dir", "src": "img/lab", "dest": "img/lab", "updatable": true },
     { "kind": "dir", "src": "snippets", "dest": "snippets", "updatable": true },
     { "kind": "dir", "src": "src", "dest": "src", "updatable": true },
-    { "kind": "dir", "src": "guide", "dest": "guide", "updatable": true }
+    { "kind": "dir", "src": "guide", "dest": "guide", "updatable": true },
+    { "kind": "dir", "src": "sections", "dest": "sections", "updatable": true }
   ],
   "multi": {
     "root": [
@@ -29,7 +30,8 @@
       { "kind": "dir", "src": "img/lab", "dest": "{lab}/img/lab", "updatable": true },
       { "kind": "dir", "src": "snippets", "dest": "{lab}/snippets", "updatable": true },
       { "kind": "dir", "src": "src", "dest": "{lab}/src", "updatable": true },
-      { "kind": "dir", "src": "guide", "dest": "{lab}/guide", "updatable": true }
+      { "kind": "dir", "src": "guide", "dest": "{lab}/guide", "updatable": true },
+      { "kind": "dir", "src": "multi/sections", "dest": "{lab}/sections", "updatable": true }
     ]
   }
 }
