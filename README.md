@@ -1,4 +1,4 @@
-# UNSReport CLI
+# UNSAReport CLI
 
 > [!WARNING]
 > This tool is particularly volatile as it is still being adapted to the actual needs to make work easier. It is very likely that some features are broken, don't exist, get removed randomly, or require manual intervention to work. Your best bet is to install the version in the dev branch, create an empty project and copy the latest unsareport.json from it.
@@ -9,7 +9,6 @@ A command-line interface designed to automate and manage laboratory reports for 
 
 The included Typst template provides specialized components for academic reports:
 
-- **UNSA/EPIS Compliance**: Standardized page headers and layout according to the "Escuela Profesional de Ingeniería de Sistemas" requirements.
 - **Metadata-driven Reports**: Define variables like `course_name`, `lab_title`, and `members` in your report to automatically populate the information tables.
 - **Lab Sections**: Use `#lab-section(title: "...", body: [...])` to create formatted sections with header bars.
 - **Advanced Code Blocks**: The `#code-block` component allows including source files directly with syntax highlighting and customizable snippets.

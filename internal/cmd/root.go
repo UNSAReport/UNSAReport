@@ -8,8 +8,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "unsarep",
-	Short: "UNSReport template CLI",
-	Long: `UNSReport template CLI is a tool to manage and automate lab report creation.
+	Short: "UNSAReport template CLI",
+	Long: `UNSAReport template CLI is a tool to manage and automate lab report creation.
 It helps you scaffold new projects, update template files, capture terminal output,
 and compile everything into a submission-ready PDF and source code bundle.`,
 	SilenceUsage:  true,
