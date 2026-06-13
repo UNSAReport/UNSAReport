@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 	"github.com/charmbracelet/huh"
-	"github.com/christianmz565/lab-report/internal/ports"
 )
 
 type UpdateOptions struct {
@@ -22,16 +22,18 @@ type UpdateOptions struct {
 }
 
 type UpdateService struct {
-	Fetcher ports.TemplateFetcher
-	FS      ports.FileSystem
-	Config  ports.ConfigStore
+	Fetcher  ports.TemplateFetcher
+	FS       ports.FileSystem
+	Config   ports.ConfigStore
+	Registry ports.TemplateRegistry
 }
 
-func NewUpdateService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore) *UpdateService {
+func NewUpdateService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry) *UpdateService {
 	return &UpdateService{
-		Fetcher: f,
-		FS:      fs,
-		Config:  c,
+		Fetcher:  f,
+		FS:       fs,
+		Config:   c,
+		Registry: r,
 	}
 }
 
@@ -66,7 +68,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		isMulti = cfg.MultiLab
 		destDir = projectRoot
 	} else {
-		defaultCfg := ports.LabReportConfig{
+		defaultCfg := ports.UnsareportConfig{
 			MultiLab: isMulti,
 			Sessions: []string{},
 			Prepare: ports.PrepareConfig{
@@ -96,7 +98,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		if err := s.Config.WriteConfig(destDir, defaultCfg); err != nil {
 			return fmt.Errorf("write default config: %w", err)
 		}
-		fmt.Fprintln(os.Stdout, "labreport.json not found. Created default config in the target directory.")
+		fmt.Fprintln(os.Stdout, "unsareport.json not found. Created default config in the target directory.")
 		fmt.Fprintln(os.Stdout, "Please validate the configuration and run the command again.")
 		return nil
 	}
@@ -215,7 +217,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	return nil
 }
 
-func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir string, cfg ports.LabReportConfig, session string) []Entry {
+func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir string, cfg ports.UnsareportConfig, session string) []Entry {
 	var out []Entry
 	add := func(entries ...[]Entry) {
 		for _, list := range entries {

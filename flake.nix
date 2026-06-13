@@ -1,5 +1,5 @@
 {
-  description = "Lab Report CLI";
+  description = "UNSReport CLI";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -32,10 +32,10 @@
       in
       {
         packages.default = pkgs.buildGoModule {
-          pname = "lab-report";
+          pname = "unsarep";
           version = "1.0.0";
           src = ./.;
-          subPackages = [ "cmd/lab-report" ];
+          subPackages = [ "cmd/unsarep" ];
 
           vendorHash = "sha256-aFkV11P+AzgVWlxc0W1yody7Z7iAS2KCo3mK08Xl9cY=";
 
@@ -47,7 +47,7 @@
           buildInputs = [ pkgs.fontconfig ];
 
           postInstall = ''
-            wrapProgram $out/bin/lab-report \
+            wrapProgram $out/bin/unsarep \
               --prefix PATH : ${
                 pkgs.lib.makeBinPath [
                   pkgs.typst
@@ -64,7 +64,7 @@
 
           meta = with pkgs.lib; {
             description = "A CLI tool for generating lab reports from markdown files.";
-            homepage = "https://github.com/christianmz565/lab-report";
+            homepage = "https://github.com/UNSAReport/UNSAReport";
             license = licenses.mit;
             platforms = platforms.unix ++ platforms.darwin ++ platforms.windows;
           };
@@ -88,6 +88,9 @@
             fontconfig
             charm-freeze
             imagemagick
+
+            pnpm
+            nodejs
           ];
 
           buildInputs = [ pkgs.bashInteractive ];

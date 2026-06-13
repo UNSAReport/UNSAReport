@@ -24,7 +24,7 @@ type PrepareConfig struct {
 	Output PrepareOutputConfig `json:"output"`
 }
 
-type LabReportConfig struct {
+type UnsareportConfig struct {
 	MultiLab bool          `json:"multiLab"`
 	Sessions []string      `json:"sessions"`
 	Capture  CaptureConfig `json:"capture"`
@@ -32,7 +32,7 @@ type LabReportConfig struct {
 }
 
 type ConfigStore interface {
-	FindProjectRoot(startDir string) (projectRoot string, cfg LabReportConfig, ok bool, err error)
-	ReadConfig(destDir string) (cfg LabReportConfig, ok bool, err error)
-	WriteConfig(destDir string, cfg LabReportConfig) error
+	FindProjectRoot(startDir string) (projectRoot string, cfg UnsareportConfig, ok bool, err error)
+	ReadConfig(destDir string) (cfg UnsareportConfig, ok bool, err error)
+	WriteConfig(destDir string, cfg UnsareportConfig) error
 }

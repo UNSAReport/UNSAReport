@@ -1,7 +1,7 @@
-# Lab Report CLI
+# UNSReport CLI
 
 > [!WARNING]
-> This tool is particularly volatile as it is still being adapted to the actual needs to make work easier. It is very likely that some features are broken, don't exist, get removed randomly, or require manual intervention to work. Your best bet is to install the version in the dev branch, create an empty project and copy the latest labreport.json from it.
+> This tool is particularly volatile as it is still being adapted to the actual needs to make work easier. It is very likely that some features are broken, don't exist, get removed randomly, or require manual intervention to work. Your best bet is to install the version in the dev branch, create an empty project and copy the latest unsareport.json from it.
 
 A command-line interface designed to automate and manage laboratory reports for the UNSA Software Engineering career. This tool streamlines the process of scaffolding projects, updating templates, capturing terminal output, and preparing final submissions.
 
@@ -30,13 +30,13 @@ A `flake.nix` is provided for users who prefer a pre-configured Nix environment.
 ### Using Go
 
 ```bash
-go install github.com/christianmz565/lab-report/cmd/lab-report@latest
+go install github.com/UNSAReport/UNSAReport/cmd/unsarep@latest
 ```
 
 ### Using Nix
 
 ```bash
-nix run github:christianmz565/lab-report -- --help
+nix run github:UNSAReport/UNSAReport -- --help
 ```
 
 ## Usage
@@ -46,19 +46,19 @@ nix run github:christianmz565/lab-report -- --help
 To install the laboratory template in the current directory:
 
 ```bash
-lab-report install
+unsarep install
 ```
 
 For a repository containing multiple laboratory sessions (e.g., `l1/`, `l2/`):
 
 ```bash
-lab-report install --multi
+unsarep install --multi
 ```
 
 To add a new session to an existing multi-lab repository:
 
 ```bash
-lab-report install --session l3
+unsarep install --session l3
 ```
 
 ### Updating Templates
@@ -67,10 +67,10 @@ Keep your project's template files synchronized with the latest version:
 
 ```bash
 # Update the current single-lab project or ALL registered sessions in a multi-lab project
-lab-report update
+unsarep update
 
 # Update a specific session in a multi-lab project
-lab-report update l1
+unsarep update l1
 ```
 
 Use the `--force` flag to apply all updates without interactive prompts.
@@ -84,18 +84,18 @@ If a `.git` directory is detected in the project root, the tool automatically fi
 **Single-lab project:**
 
 ```bash
-lab-report prepare
+unsarep prepare
 ```
 
 **Multi-lab project:**
 
 ```bash
 # From the project root, specifying the lab directory
-lab-report prepare l1
+unsarep prepare l1
 
 # Or from within the lab directory itself
 cd l1
-lab-report prepare
+unsarep prepare
 ```
 
 Use `--configure` to re-trigger the naming template setup prompt.
@@ -107,7 +107,7 @@ Leveraging Freeze and ImageMagick, you can capture terminal sessions directly in
 The `capture` command executes terminal instructions directly and captures the resulting output. It uses a clean terminal environment and supports custom prompt formatting.
 
 ```bash
-lab-report capture --cwd ./src output.png "python script.py" "w:2s"
+unsarep capture --cwd ./src output.png "python script.py" "w:2s"
 ```
 
 - Text arguments are typed into the terminal followed by `Enter`.
@@ -124,7 +124,7 @@ Logs of the terminal output (including ANSI colors) are automatically saved in t
 ### Single Lab
 ```text
 .
-├── labreport.json    # Project configuration
+├── unsareport.json    # Project configuration
 ├── report.typ        # Main report file
 ├── lib.typ           # Template library
 ├── functions.typ     # Useful functions for config var generation
@@ -141,7 +141,7 @@ Logs of the terminal output (including ANSI colors) are automatically saved in t
 ### Multi Lab
 ```text
 .
-├── labreport.json         # Project configuration
+├── unsareport.json         # Project configuration
 ├── lib.typ                # Template library
 ├── functions.typ          # Useful functions for config var generation
 ├── README.md              # Summary file with instructions
@@ -162,7 +162,7 @@ Logs of the terminal output (including ANSI colors) are automatically saved in t
 
 ## Configuration
 
-The `labreport.json` file in your project root controls the behavior of the tool:
+The `unsareport.json` file in your project root controls the behavior of the tool:
 
 - `multiLab`: (boolean) Indicates if the project is a multi-lab setup.
 - `sessions`: (array of strings) List of registered session directories (e.g., `["l1", "l2"]`) in a multi-lab setup. Managed automatically by `install --session`.

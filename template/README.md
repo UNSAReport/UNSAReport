@@ -1,17 +1,17 @@
 # Template Usage
 
-This directory is the working template for a lab-report project.
+This directory is the working template for a unsa-report project.
 
 ## Setup
 
 1. Ensure `typst` is installed and available in your shell (or use `nix develop`).
 2. Open `report.typ` (or your configured report filename) and fill in the lab metadata variables.
 3. Put your solution code in `src/` (or your configured source directory), screenshots in `img/lab/` and (snippets)[#code-blocks-and-snippets] in `snippets/`.
-4. Run `lab-report prepare` to compile the report and create the submission bundle in `submission/` (or your configured output directory).
+4. Run `unsarep prepare` to compile the report and create the submission bundle in `submission/` (or your configured output directory).
 
 ## Project Configuration
 
-You can customize the project structure in `labreport.json`:
+You can customize the project structure in `unsareport.json`:
 
 - `prepare.input.reportFile`: Set this if you rename `report.typ`.
 - `prepare.input.srcDir`: Set this if your code is in a directory other than `src/`.
@@ -26,7 +26,7 @@ You can customize the project structure in `labreport.json`:
 The `lib.typ` file provides several components to streamline report creation:
 
 ### Metadata and Layout
-The top level `#lab-report()[]` rule initializes the UNSA/EPIS compliant layout. It automatically extracts variables exported via `<var_export>`:
+The top level `#unsa-report()[]` rule initializes the UNSA/EPIS compliant layout. It automatically extracts variables exported via `<var_export>`:
 - `course_name`, `lab_title`, `lab_number`, `instructor_name`, `members`.
 - Optional: `year`, `presentation_date`, `sem_code`, `presentation_hour`.
 - Any other variables can be defined and used freely for the submission filename template.
@@ -75,17 +75,17 @@ You are also strongly advised to follow the snippets/ and src/ conventions. All 
 
 Update the template files to the latest version:
 ```bash
-lab-report update
+unsarep update
 ```
 
 Compile the report and create the submission bundle:
 ```bash
-lab-report prepare
+unsarep prepare
 ```
 
 Capture terminal output into a PNG (you'll also get a .log file with the raw output under `capture_logs/`):
 ```bash
-lab-report capture output.png "python src/main.py"
+unsarep capture output.png "python src/main.py"
 ```
 
 - Text arguments are typed into the terminal followed by `Enter`.

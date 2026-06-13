@@ -3,14 +3,14 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
-    lab-report.url = "github:christianmz565/lab-report";
+    unsarep.url = "github:UNSAReport/UNSAReport";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs =
     {
       nixpkgs,
-      lab-report,
+      unsarep,
       flake-utils,
       ...
     }:
@@ -36,7 +36,7 @@
             ]
             ++ fonts
             ++ [
-              lab-report.packages.${system}.default
+              unsarep.packages.${system}.default
             ];
 
           buildInputs = [ pkgs.bashInteractive ];

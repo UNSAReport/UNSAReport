@@ -1,4 +1,4 @@
-module github.com/christianmz565/lab-report
+module github.com/UNSAReport/UNSAReport
 
 go 1.26.2
 

@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/christianmz565/lab-report/internal/ports"
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
 type Adapter struct{}
@@ -15,7 +15,7 @@ func New() *Adapter {
 	return &Adapter{}
 }
 
-func (a *Adapter) FindProjectRoot(startDir string) (string, ports.LabReportConfig, bool, error) {
+func (a *Adapter) FindProjectRoot(startDir string) (string, ports.UnsareportConfig, bool, error) {
 	currentDir := startDir
 	for {
 		cfg, ok, err := a.ReadConfig(currentDir)
@@ -28,12 +28,12 @@ func (a *Adapter) FindProjectRoot(startDir string) (string, ports.LabReportConfi
 		}
 		currentDir = parentDir
 	}
-	return startDir, ports.LabReportConfig{}, false, nil
+	return startDir, ports.UnsareportConfig{}, false, nil
 }
 
-func (a *Adapter) ReadConfig(destDir string) (ports.LabReportConfig, bool, error) {
-	path := filepath.Join(destDir, "labreport.json")
-	var cfg ports.LabReportConfig
+func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, error) {
+	path := filepath.Join(destDir, "unsareport.json")
+	var cfg ports.UnsareportConfig
 
 	found := true
 	b, err := os.ReadFile(path)
@@ -41,13 +41,13 @@ func (a *Adapter) ReadConfig(destDir string) (ports.LabReportConfig, bool, error
 		if os.IsNotExist(err) {
 			found = false
 		} else {
-			return ports.LabReportConfig{}, false, fmt.Errorf("read file: %w", err)
+			return ports.UnsareportConfig{}, false, fmt.Errorf("read file: %w", err)
 		}
 	}
 
 	if found {
 		if err := json.Unmarshal(b, &cfg); err != nil {
-			return ports.LabReportConfig{}, true, fmt.Errorf("failed to parse labreport.json: %w", err)
+			return ports.UnsareportConfig{}, true, fmt.Errorf("failed to parse unsareport.json: %w", err)
 		}
 	}
 
@@ -77,8 +77,8 @@ func (a *Adapter) ReadConfig(destDir string) (ports.LabReportConfig, bool, error
 	return cfg, found, nil
 }
 
-func (a *Adapter) WriteConfig(destDir string, cfg ports.LabReportConfig) error {
-	path := filepath.Join(destDir, "labreport.json")
+func (a *Adapter) WriteConfig(destDir string, cfg ports.UnsareportConfig) error {
+	path := filepath.Join(destDir, "unsareport.json")
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)

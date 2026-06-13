@@ -40,7 +40,7 @@
 
 #let code-block = e.element.declare(
   "code-block",
-  prefix: "@christianmz565/lab-report,v3",
+  prefix: "@christianmz565/unsa-report,v3",
   doc: "Displays source code from a file in a formatted block.",
   fields: (
     e.field("file", str, required: true),
@@ -83,7 +83,7 @@
 
 #let lab-section = e.element.declare(
   "lab-section",
-  prefix: "@christianmz565/lab-report,v3",
+  prefix: "@christianmz565/unsa-report,v3",
   doc: "Displays a report section with a header bar.",
   fields: (
     e.field("title", content, required: true),
@@ -214,9 +214,9 @@
   match.value.at("value")
 }
 
-#let lab-report = e.element.declare(
-  "lab-report",
-  prefix: "@christianmz565/lab-report,v3",
+#let unsa-report = e.element.declare(
+  "unsa-report",
+  prefix: "@christianmz565/unsa-report,v3",
   doc: "Main layout and metadata wrapper for EPIS lab reports.",
   fields: (
     e.field("body", content, required: true),

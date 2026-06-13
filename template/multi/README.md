@@ -8,11 +8,11 @@ This directory is the working template for a multi-lab repository.
 2. For each lab (e.g., `l1/`, `l2/`):
     - Open `report.typ` (or your configured report filename) in the lab directory and fill in the lab metadata variables.
     - Put your solution code in `src/` (or your configured source directory), screenshots in `img/lab/` and (snippets)[#code-blocks-and-snippets] in `snippets/`. (within the lab directory).
-3. Run `lab-report prepare <lab-dir>` (or `lab-report prepare` from within the lab directory) to compile the report and create the submission bundle in `submission/` (or your configured output directory).
+3. Run `unsarep prepare <lab-dir>` (or `unsarep prepare` from within the lab directory) to compile the report and create the submission bundle in `submission/` (or your configured output directory).
 
 ## Project Configuration
 
-You can customize the project structure in `labreport.json`:
+You can customize the project structure in `unsareport.json`:
 
 - `prepare.input.reportFile`: Main report filename in each lab directory.
 - `prepare.input.srcDir`: Source code directory in each lab directory.
@@ -26,7 +26,7 @@ You can customize the project structure in `labreport.json`:
 The shared `lib.typ` file provides several components:
 
 ### Metadata and Layout
-The top level `#lab-report()[]` rule initializes the UNSA/EPIS compliant layout. It automatically extracts variables exported via `<var_export>`:
+The top level `#unsa-report()[]` rule initializes the UNSA/EPIS compliant layout. It automatically extracts variables exported via `<var_export>`:
 - `course_name`, `lab_title`, `lab_number`, `instructor_name`, `members`.
 - Optional: `year`, `presentation_date`, `sem_code`, `presentation_hour`.
 - Any other variables can be defined and used freely for the submission filename template.
@@ -75,26 +75,26 @@ You are also strongly advised to follow the snippets/ and src/ conventions. All 
 
 Add a new lab session:
 ```bash
-lab-report install --session l2
+unsarep install --session l2
 ```
 
 Update the template files across all registered sessions or for a specific session:
 ```bash
 # Update all sessions
-lab-report update
+unsarep update
 
 # Update a specific session
-lab-report update l1
+unsarep update l1
 ```
 
 Compile the report and create the submission bundle for a specific lab (e.g., `l1`):
 ```bash
-lab-report prepare l1
+unsarep prepare l1
 ```
 
 Capture terminal output into a PNG (you'll also get a .log file with the raw output under `capture_logs/`):
 ```bash
-lab-report capture output.png "python l1/src/main.py"
+unsarep capture output.png "python l1/src/main.py"
 ```
 
 - Text arguments are typed into the terminal followed by `Enter`.

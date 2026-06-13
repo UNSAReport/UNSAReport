@@ -1,4 +1,4 @@
-#import "./lib.typ": code-block, define, get-var, header-border-color, lab-report, lab-section, table-border-width
+#import "./lib.typ": code-block, define, get-var, header-border-color, unsa-report, lab-section, table-border-width
 #import "./functions.typ": abbreviate-by-caps, summarize-name
 #import "@preview/elembic:1.1.1" as e
 
@@ -30,7 +30,7 @@
   define("wide_lab_number", numbering("001", int(get-var("lab_number"))))
 }
 
-#lab-report()[
+#unsa-report()[
   #set image(width: 78%)
   #set list(indent: 2pt)
   #show raw.where(block: false): it => box(

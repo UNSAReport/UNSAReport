@@ -32,7 +32,7 @@ func (a *Adapter) Fetch(ctx context.Context, repo, ref string) (map[string][]byt
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("User-Agent", "lab-report")
+	req.Header.Set("User-Agent", "unsarep")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

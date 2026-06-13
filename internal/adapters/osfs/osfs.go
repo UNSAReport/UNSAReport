@@ -31,7 +31,7 @@ func (a *Adapter) WriteFileAtomic(path string, data []byte, perm os.FileMode) er
 	if err := a.EnsureDir(dir); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, ".tmp-lab-report-*")
+	tmp, err := os.CreateTemp(dir, ".tmp-unsarep-*")
 	if err != nil {
 		return err
 	}

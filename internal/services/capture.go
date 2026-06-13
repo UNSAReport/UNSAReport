@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/christianmz565/lab-report/internal/ports"
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
 type CaptureService struct {

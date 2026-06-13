@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"github.com/christianmz565/lab-report/internal/adapters/config"
-	"github.com/christianmz565/lab-report/internal/adapters/osfs"
-	"github.com/christianmz565/lab-report/internal/adapters/typst"
-	"github.com/christianmz565/lab-report/internal/adapters/zipper"
-	"github.com/christianmz565/lab-report/internal/services"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/config"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/osfs"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/typst"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/zipper"
+	"github.com/UNSAReport/UNSAReport/internal/services"
 	"github.com/spf13/cobra"
 )
 
@@ -20,13 +20,13 @@ func newPrepareCmd() *cobra.Command {
 This command reads 'report.typ' to extract project metadata (course, lab, authors)
 and uses it to generate properly named files in a 'submission' folder.`,
 		Example: `  # Prepare submission in a single-lab project
-  lab-report prepare
+  unsarep prepare
 
   # Prepare submission in a multi-lab project (from root)
-  lab-report prepare l1
+  unsarep prepare l1
 
   # Force reconfiguration of file naming template
-  lab-report prepare --configure`,
+  unsarep prepare --configure`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			labDir := ""
 			if len(args) > 0 {

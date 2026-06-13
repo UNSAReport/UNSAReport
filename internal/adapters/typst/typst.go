@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/christianmz565/lab-report/internal/dependencies"
+	"github.com/UNSAReport/UNSAReport/internal/dependencies"
 )
 
 type Adapter struct{}
