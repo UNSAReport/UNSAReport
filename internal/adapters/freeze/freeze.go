@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -49,6 +50,10 @@ func (a *Adapter) Render(ctx context.Context, resultPath string, commands []port
 		return output, fmt.Errorf("write temp input file: %w", err)
 	}
 	tempInput.Close()
+
+	if filepath.Ext(resultPath) == "" {
+		resultPath += ".png"
+	}
 
 	svgPath := resultPath + ".svg"
 	os.Remove(svgPath)
