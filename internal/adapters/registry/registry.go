@@ -21,6 +21,10 @@ func New(localDir string) *Adapter {
 	return a
 }
 
+func NewLocal(localDir string) *Adapter {
+	return New(localDir)
+}
+
 func (a *Adapter) loadLocalTemplates() {
 	a.templates = nil
 

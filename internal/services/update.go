@@ -19,6 +19,7 @@ type UpdateOptions struct {
 	Session string
 	Repo    string
 	Ref     string
+	Local   string
 }
 
 type UpdateService struct {
@@ -107,13 +108,14 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		return fmt.Errorf("chdir to dest: %w", err)
 	}
 
+	localSource := opt.Local
+	if localSource == "" {
+		localSource = cfg.LocalSource
+	}
+
 	var remoteFiles map[string][]byte
-	if info, err := s.FS.Stat(opt.Repo); err == nil && info.IsDir() {
-		templateDir := opt.Repo
-		if cfg.Template != "" {
-			templateDir = filepath.Join(opt.Repo, cfg.Template)
-		}
-		remoteFiles, err = s.Fetcher.LoadLocal(templateDir)
+	if localSource != "" {
+		remoteFiles, err = s.Fetcher.LoadLocal(localSource)
 		if err != nil {
 			return fmt.Errorf("load local templates: %w", err)
 		}
@@ -132,7 +134,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	fmt.Fprintf(os.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti])
 	fmt.Fprintf(os.Stdout, "Checking for updates in: %s\n\n", destDir)
 
-	entries := s.buildUpdateEntries(m, isMulti, destDir, cfg, opt.Session)
+	entries := s.buildUpdateEntries(m, isMulti, cfg, opt.Session)
 	entries = ExpandDirEntries(remoteFiles, entries)
 	applied := 0
 	autoAcceptAll := opt.Force
@@ -217,7 +219,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	return nil
 }
 
-func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir string, cfg ports.UnsareportConfig, session string) []Entry {
+func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, cfg ports.UnsareportConfig, session string) []Entry {
 	var out []Entry
 	add := func(entries ...[]Entry) {
 		for _, list := range entries {

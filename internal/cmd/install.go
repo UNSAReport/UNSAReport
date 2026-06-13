@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/UNSAReport/UNSAReport/internal/adapters/config"
 	"github.com/UNSAReport/UNSAReport/internal/adapters/github"
@@ -36,7 +34,10 @@ If no template is specified, an interactive picker will be shown.`,
   unsarep install lab --dest ./my-reports
 
   # Install a multi-lab template
-  unsarep install multi-lab`,
+  unsarep install multi-lab
+
+  # Install from a local directory
+  unsarep install --local ./my-templates`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return cmd.Help()
@@ -45,8 +46,14 @@ If no template is specified, an interactive picker will be shown.`,
 			var templateName string
 			if len(args) == 1 {
 				templateName = args[0]
+			} else if opt.Local != "" {
+				selected, err := pickLocalTemplate(opt.Local)
+				if err != nil {
+					return err
+				}
+				templateName = selected
 			} else {
-				selected, err := pickTemplate()
+				selected, err := pickTemplate(opt.Repo, opt.Ref)
 				if err != nil {
 					return err
 				}
@@ -59,8 +66,7 @@ If no template is specified, an interactive picker will be shown.`,
 			fetcher := github.New()
 			cfg := config.New()
 
-			registryPath := findTemplatesDir()
-			reg := registry.New(registryPath)
+			reg := registry.NewRemote(opt.Repo, opt.Ref, fetcher)
 
 			svc := services.NewInstallService(fetcher, fs, cfg, reg)
 			return svc.Execute(cmd.Context(), opt)
@@ -71,13 +77,17 @@ If no template is specified, an interactive picker will be shown.`,
 	cmd.Flags().StringVar(&opt.Session, "session", "", "Session/Lab name for per-lab installation in multi-lab templates")
 	cmd.Flags().StringVar(&opt.Repo, "repo", "UNSAReport/templates", "GitHub repo to fetch templates from (owner/repo)")
 	cmd.Flags().StringVar(&opt.Ref, "ref", "main", "Git ref to fetch templates from")
+	cmd.Flags().StringVar(&opt.Local, "local", "", "Local directory containing template files to install from")
+
+	cmd.MarkFlagsMutuallyExclusive("local", "repo")
+	cmd.MarkFlagsMutuallyExclusive("local", "ref")
 
 	return cmd
 }
 
-func pickTemplate() (string, error) {
-	registryPath := findTemplatesDir()
-	reg := registry.New(registryPath)
+func pickTemplate(repo, ref string) (string, error) {
+	fetcher := github.New()
+	reg := registry.NewRemote(repo, ref, fetcher)
 
 	templates, err := reg.ListTemplates()
 	if err != nil {
@@ -86,6 +96,48 @@ func pickTemplate() (string, error) {
 
 	if len(templates) == 0 {
 		return "", fmt.Errorf("no templates found")
+	}
+
+	var selected string
+	options := make([]huh.Option[string], len(templates))
+	for i, t := range templates {
+		options[i] = huh.NewOption(t.Name, t.Name)
+	}
+
+	descriptionMap := make(map[string]string, len(templates))
+	for _, t := range templates {
+		descriptionMap[t.Name] = t.Description
+	}
+
+	form := huh.NewSelect[string]().
+		Title("Select a template").
+		Options(options...).
+		Value(&selected).
+		DescriptionFunc(func() string {
+			return descriptionMap[selected]
+		}, &selected)
+
+	if err := form.Run(); err != nil {
+		return "", fmt.Errorf("template selection cancelled: %w", err)
+	}
+
+	return selected, nil
+}
+
+func pickLocalTemplate(localDir string) (string, error) {
+	reg := registry.NewLocal(localDir)
+
+	templates, err := reg.ListTemplates()
+	if err != nil {
+		return "", fmt.Errorf("failed to list templates: %w", err)
+	}
+
+	if len(templates) == 0 {
+		return "", fmt.Errorf("no templates found in %s", localDir)
+	}
+
+	if len(templates) == 1 {
+		return templates[0].Name, nil
 	}
 
 	var selected string
@@ -104,20 +156,4 @@ func pickTemplate() (string, error) {
 	}
 
 	return selected, nil
-}
-
-func findTemplatesDir() string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "templates"
-	}
-
-	for dir := cwd; dir != "/"; dir = filepath.Dir(dir) {
-		templatesDir := filepath.Join(dir, "templates")
-		if info, err := os.Stat(templatesDir); err == nil && info.IsDir() {
-			return templatesDir
-		}
-	}
-
-	return filepath.Join(cwd, "templates")
 }

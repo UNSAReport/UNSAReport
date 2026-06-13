@@ -17,6 +17,7 @@ type InstallOptions struct {
 	Repo     string
 	Ref      string
 	Template string
+	Local    string
 }
 
 type InstallService struct {
@@ -91,20 +92,18 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	}
 
 	var files map[string][]byte
-	if template.LocalPath != "" {
-		if info, err := s.FS.Stat(template.LocalPath); err == nil && info.IsDir() {
-			files, err = s.Fetcher.LoadLocal(template.LocalPath)
-			if err != nil {
-				return fmt.Errorf("load local templates: %w", err)
-			}
+	if opt.Local != "" {
+		localDir := filepath.Join(opt.Local, template.Name)
+		files, err = s.Fetcher.LoadLocal(localDir)
+		if err != nil {
+			return fmt.Errorf("load local templates: %w", err)
 		}
-	} else if template.Repo != "" {
+		cfg.LocalSource = opt.Local
+	} else {
 		files, err = s.Fetcher.Fetch(ctx, template.Repo, template.Ref)
 		if err != nil {
 			return fmt.Errorf("fetch templates: %w", err)
 		}
-	} else {
-		return fmt.Errorf("template %q has no source", opt.Template)
 	}
 
 	m, err := LoadManifest(files)

@@ -25,11 +25,12 @@ type PrepareConfig struct {
 }
 
 type UnsareportConfig struct {
-	Template string        `json:"template"`
-	Mode     string        `json:"mode"`
-	Sessions []string      `json:"sessions"`
-	Capture  CaptureConfig `json:"capture"`
-	Prepare  PrepareConfig `json:"prepare"`
+	Template    string        `json:"template"`
+	Mode        string        `json:"mode"`
+	LocalSource string        `json:"localSource,omitempty"`
+	Sessions    []string      `json:"sessions"`
+	Capture     CaptureConfig `json:"capture"`
+	Prepare     PrepareConfig `json:"prepare"`
 }
 
 type ConfigStore interface {

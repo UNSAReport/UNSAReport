@@ -141,3 +141,36 @@ func findTemplatePrefix(zr *zip.Reader) (string, error) {
 	}
 	return "", fmt.Errorf("template/ directory not found in repository archive")
 }
+
+func (a *Adapter) FetchRaw(ctx context.Context, repo, ref, path string) ([]byte, error) {
+	parts := strings.Split(repo, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return nil, fmt.Errorf("invalid repo %q (expected owner/repo)", repo)
+	}
+	owner, name := parts[0], parts[1]
+
+	rawURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/refs/heads/%s/%s", owner, name, ref, path)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("User-Agent", "unsarep")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
+		return nil, fmt.Errorf("failed to fetch %s: %s (%s)", path, resp.Status, strings.TrimSpace(string(b)))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+
+	return body, nil
+}

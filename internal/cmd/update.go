@@ -27,7 +27,10 @@ flag is used.`,
   unsarep update --force
 
   # Update a specific session in a multi-lab repository
-  unsarep update l1`,
+  unsarep update l1
+
+  # Update from a local directory
+  unsarep update --local ./my-templates`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return cmd.Help()
@@ -39,8 +42,7 @@ flag is used.`,
 			fs := osfs.New()
 			fetcher := github.New()
 			cfg := config.New()
-			registryPath := findTemplatesDir()
-			reg := registry.New(registryPath)
+			reg := registry.NewRemote(opt.Repo, opt.Ref, fetcher)
 
 			svc := services.NewUpdateService(fetcher, fs, cfg, reg)
 			return svc.Execute(cmd.Context(), opt)
@@ -51,6 +53,10 @@ flag is used.`,
 	cmd.Flags().BoolVarP(&opt.Force, "force", "f", false, "Apply all updates without prompting")
 	cmd.Flags().StringVar(&opt.Repo, "repo", "UNSAReport/templates", "GitHub repo to fetch templates from (owner/repo)")
 	cmd.Flags().StringVar(&opt.Ref, "ref", "main", "Git ref to fetch templates from")
+	cmd.Flags().StringVar(&opt.Local, "local", "", "Local directory containing template files to update from")
+
+	cmd.MarkFlagsMutuallyExclusive("local", "repo")
+	cmd.MarkFlagsMutuallyExclusive("local", "ref")
 
 	return cmd
 }
