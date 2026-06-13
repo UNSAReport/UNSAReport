@@ -186,12 +186,12 @@ func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareCo
 	pctx := prepareContext{
 		projectRoot: projectRoot,
 		cfg:         cfg,
-		isMulti:     cfg.MultiLab,
+		isMulti:     cfg.Mode == "multi",
 	}
 
 	if !pctx.isMulti {
 		if labDirArg != "" {
-			return pctx, fmt.Errorf("lab argument provided but project is not a multi-lab repository")
+			return pctx, fmt.Errorf("lab argument provided but template is not multi-mode")
 		}
 		return pctx, nil
 	}
@@ -205,7 +205,7 @@ func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareCo
 		}
 
 		if rel == "." {
-			return pctx, fmt.Errorf("in a multi-lab project, you must either provide a lab directory or run this command from inside a lab directory")
+			return pctx, fmt.Errorf("in a multi-mode project, you must either provide a lab directory or run this command from inside a lab directory")
 		}
 
 		parts := strings.Split(filepath.ToSlash(rel), "/")

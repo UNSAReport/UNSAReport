@@ -22,15 +22,14 @@ type Entry struct {
 	Updatable bool      `json:"updatable,omitempty"`
 }
 
-type MultiSection struct {
+type MultiEntrySet struct {
 	Root     []Entry `json:"root"`
 	LabFiles []Entry `json:"labFiles"`
 }
 
 type Manifest struct {
-	Common []Entry      `json:"common"`
-	Single []Entry      `json:"single"`
-	Multi  MultiSection `json:"multi"`
+	Mode    string      `json:"mode"`
+	Entries interface{} `json:"entries"`
 }
 
 func LoadManifest(files map[string][]byte) (*Manifest, error) {
@@ -42,7 +41,40 @@ func LoadManifest(files map[string][]byte) (*Manifest, error) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, err
 	}
+	if m.Mode != "single" && m.Mode != "multi" {
+		return nil, fmt.Errorf("invalid manifest mode %q (must be \"single\" or \"multi\")", m.Mode)
+	}
 	return &m, nil
+}
+
+func (m *Manifest) GetSingleEntries() ([]Entry, error) {
+	if m.Mode != "single" {
+		return nil, fmt.Errorf("manifest is not single-mode")
+	}
+	data, err := json.Marshal(m.Entries)
+	if err != nil {
+		return nil, err
+	}
+	var entries []Entry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+func (m *Manifest) GetMultiEntries() (*MultiEntrySet, error) {
+	if m.Mode != "multi" {
+		return nil, fmt.Errorf("manifest is not multi-mode")
+	}
+	data, err := json.Marshal(m.Entries)
+	if err != nil {
+		return nil, err
+	}
+	var entries MultiEntrySet
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, err
+	}
+	return &entries, nil
 }
 
 func ExpandDirEntries(remote map[string][]byte, entries []Entry) []Entry {

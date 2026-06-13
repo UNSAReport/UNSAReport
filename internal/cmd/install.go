@@ -35,8 +35,8 @@ If no template is specified, an interactive picker will be shown.`,
   # Install in a specific directory
   unsarep install lab --dest ./my-reports
 
-  # Install with multi-lab repository structure
-  unsarep install lab --multi`,
+  # Install a multi-lab template
+  unsarep install multi-lab`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return cmd.Help()
@@ -68,8 +68,7 @@ If no template is specified, an interactive picker will be shown.`,
 	}
 
 	cmd.Flags().StringVar(&opt.Dest, "dest", "", "Destination directory (default: current working directory)")
-	cmd.Flags().BoolVar(&opt.Multi, "multi", false, "Install as a multi-lab repository")
-	cmd.Flags().StringVar(&opt.Session, "session", "", "Session/Lab name for per-lab installation in multi-lab mode")
+	cmd.Flags().StringVar(&opt.Session, "session", "", "Session/Lab name for per-lab installation in multi-lab templates")
 	cmd.Flags().StringVar(&opt.Repo, "repo", "UNSAReport/templates", "GitHub repo to fetch templates from (owner/repo)")
 	cmd.Flags().StringVar(&opt.Ref, "ref", "main", "Git ref to fetch templates from")
 

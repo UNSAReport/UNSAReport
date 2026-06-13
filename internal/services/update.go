@@ -65,11 +65,11 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 
 	isMulti := false
 	if ok {
-		isMulti = cfg.MultiLab
+		isMulti = cfg.Mode == "multi"
 		destDir = projectRoot
 	} else {
 		defaultCfg := ports.UnsareportConfig{
-			MultiLab: isMulti,
+			Mode:     "",
 			Sessions: []string{},
 			Prepare: ports.PrepareConfig{
 				Input: ports.PrepareInputConfig{
@@ -109,18 +109,18 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 
 	var remoteFiles map[string][]byte
 	if info, err := s.FS.Stat(opt.Repo); err == nil && info.IsDir() {
-		remoteFiles, err = s.Fetcher.LoadLocal(opt.Repo)
+		templateDir := opt.Repo
+		if cfg.Template != "" {
+			templateDir = filepath.Join(opt.Repo, cfg.Template)
+		}
+		remoteFiles, err = s.Fetcher.LoadLocal(templateDir)
 		if err != nil {
 			return fmt.Errorf("load local templates: %w", err)
 		}
 	} else {
 		remoteFiles, err = s.Fetcher.Fetch(ctx, opt.Repo, opt.Ref)
 		if err != nil {
-			if local, lerr := s.Fetcher.LoadLocal("template"); lerr == nil {
-				remoteFiles = local
-			} else {
-				return fmt.Errorf("fetch templates: %w", err)
-			}
+			return fmt.Errorf("fetch templates: %w", err)
 		}
 	}
 
@@ -226,7 +226,11 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir st
 	}
 
 	if isMulti {
-		add(m.Common, m.Multi.Root)
+		multiEntries, err := m.GetMultiEntries()
+		if err != nil {
+			return nil
+		}
+		add(multiEntries.Root)
 
 		labs := cfg.Sessions
 		if session != "" {
@@ -234,10 +238,14 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, destDir st
 		}
 
 		for _, lab := range labs {
-			out = append(out, substituteLab(m.Multi.LabFiles, lab)...)
+			out = append(out, substituteLab(multiEntries.LabFiles, lab)...)
 		}
 	} else {
-		add(append(m.Common, m.Single...))
+		singleEntries, err := m.GetSingleEntries()
+		if err != nil {
+			return nil
+		}
+		add(singleEntries)
 	}
 
 	seen := map[string]Entry{}

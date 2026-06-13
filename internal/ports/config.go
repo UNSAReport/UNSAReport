@@ -25,7 +25,8 @@ type PrepareConfig struct {
 }
 
 type UnsareportConfig struct {
-	MultiLab bool          `json:"multiLab"`
+	Template string        `json:"template"`
+	Mode     string        `json:"mode"`
 	Sessions []string      `json:"sessions"`
 	Capture  CaptureConfig `json:"capture"`
 	Prepare  PrepareConfig `json:"prepare"`

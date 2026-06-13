@@ -13,7 +13,6 @@ import (
 
 type InstallOptions struct {
 	Dest     string
-	Multi    bool
 	Session  string
 	Repo     string
 	Ref      string
@@ -52,10 +51,9 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	}
 	if hasConfig {
 		destDir = projectRoot
-		opt.Multi = cfg.MultiLab
 	} else {
 		cfg = ports.UnsareportConfig{
-			MultiLab: opt.Multi,
+			Mode:     "",
 			Sessions: []string{},
 			Prepare: ports.PrepareConfig{
 				Input: ports.PrepareInputConfig{
@@ -83,8 +81,8 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		}
 	}
 
-	if opt.Session != "" && !opt.Multi {
-		return fmt.Errorf("--session flag can only be used with multi-lab mode")
+	if opt.Session != "" && cfg.Mode != "multi" {
+		return fmt.Errorf("--session flag can only be used with multi-mode templates")
 	}
 
 	template, err := s.Registry.GetTemplate(opt.Template)
@@ -122,18 +120,28 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		fmt.Fprintf(os.Stdout, "Installing session '%s' into multi-lab project: %s\n", opt.Session, destDir)
 	} else {
 		fmt.Fprintf(os.Stdout, "Installing %s template to: %s\n", template.Name, destDir)
-		if opt.Multi {
-			fmt.Fprintln(os.Stdout, "Mode: Multi-lab (--multi)")
-		}
+		fmt.Fprintf(os.Stdout, "Mode: %s\n", m.Mode)
 	}
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
 
-	if opt.Multi {
+	cfg.Template = template.Name
+	cfg.Mode = m.Mode
+
+	if m.Mode == "multi" {
 		if !hasConfig {
-			rootEntries := ExpandDirEntries(files, append(m.Multi.Root, m.Common...))
+			multiEntries, err := m.GetMultiEntries()
+			if err != nil {
+				return fmt.Errorf("get multi entries: %w", err)
+			}
+			rootEntries := ExpandDirEntries(files, multiEntries.Root)
 			if err := s.applyEntriesInstall(files, destDir, rootEntries); err != nil {
 				return err
 			}
+		}
+
+		multiEntries, err := m.GetMultiEntries()
+		if err != nil {
+			return fmt.Errorf("get multi entries: %w", err)
 		}
 
 		lab := "l1"
@@ -141,7 +149,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 			lab = opt.Session
 		}
 
-		labEntries := substituteLab(m.Multi.LabFiles, lab)
+		labEntries := substituteLab(multiEntries.LabFiles, lab)
 		labEntriesExpanded := ExpandDirEntries(files, labEntries)
 		if err := s.applyEntriesInstall(files, destDir, labEntriesExpanded); err != nil {
 			return err
@@ -153,7 +161,11 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		}
 
 	} else {
-		allEntries := ExpandDirEntries(files, append(m.Common, m.Single...))
+		singleEntries, err := m.GetSingleEntries()
+		if err != nil {
+			return fmt.Errorf("get single entries: %w", err)
+		}
+		allEntries := ExpandDirEntries(files, singleEntries)
 		if err := s.applyEntriesInstall(files, destDir, allEntries); err != nil {
 			return err
 		}
@@ -163,7 +175,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		return fmt.Errorf("write config: %w", err)
 	}
 	if !hasConfig {
-		fmt.Fprintf(os.Stdout, "Created: unsareport.json (Mode: %s)\n", map[bool]string{true: "multi", false: "single"}[opt.Multi])
+		fmt.Fprintf(os.Stdout, "Created: unsareport.json (Mode: %s)\n", cfg.Mode)
 	} else {
 		fmt.Fprintf(os.Stdout, "Updated: unsareport.json\n")
 	}
@@ -227,7 +239,7 @@ func substituteLab(entries []Entry, lab string) []Entry {
 }
 
 func (s *InstallService) nextSteps(cfg ports.UnsareportConfig) []string {
-	if cfg.MultiLab {
+	if cfg.Mode == "multi" {
 		return []string{
 			fmt.Sprintf("1. Edit l1/%s with your lab information", cfg.Prepare.Input.ReportFile),
 			fmt.Sprintf("2. Place your source code in l1/%s/", cfg.Prepare.Input.SrcDir),
