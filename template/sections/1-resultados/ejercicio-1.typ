@@ -1,3 +1,0 @@
-= Ejercicio 1
-
-Contenido del ejercicio 1...

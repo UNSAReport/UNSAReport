@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/christianmz565/lab-report/internal/adapters/config"
-	"github.com/christianmz565/lab-report/internal/adapters/freeze"
-	"github.com/christianmz565/lab-report/internal/adapters/osfs"
-	"github.com/christianmz565/lab-report/internal/services"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/config"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/freeze"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/osfs"
+	"github.com/UNSAReport/UNSAReport/internal/services"
 	"github.com/kballard/go-shellquote"
 	"github.com/spf13/cobra"
 )
@@ -23,7 +23,7 @@ func newCaptureCmd() *cobra.Command {
 
 This command executes terminal instructions directly in a virtual terminal and captures the
 resulting output. It applies custom prompt formatting and terminal width (columns) defined 
-in the labreport.json configuration.
+in the unsareport.json configuration.
 
 Instructions are processed sequentially:
 - Regular text: Typed into the terminal followed by Enter.
@@ -35,13 +35,13 @@ Instructions are processed sequentially:
 A raw log of the session (including ANSI colors) is automatically saved in
 the capture_logs/ directory as a .log file.`,
 		Example: `  # Simple capture
-  lab-report capture output.png "ls -la" "cat README.md"
+  unsarep capture output.png "ls -la" "cat README.md"
 
   # Using control characters and raw input
-  lab-report capture output.png "python" "print('hello')" "k:enter" "c:d"
+  unsarep capture output.png "python" "print('hello')" "k:enter" "c:d"
 
   # With custom directory and delays
-  lab-report capture --cwd ./src result.png "python" "print('hello')" "w:1s"`,
+  unsarep capture --cwd ./src result.png "python" "print('hello')" "w:1s"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return cmd.Help()
@@ -72,7 +72,7 @@ the capture_logs/ directory as a .log file.`,
 
 	cmd.Flags().StringVar(&cwdFlag, "cwd", "", "Directory to cd into at the start of the capture")
 	cmd.Flags().StringVar(&freezeFlags, "freeze-flags", "", "Additional flags to pass to freeze (e.g., \"--theme dracula\")")
-	cmd.Flags().BoolVar(&saveFlags, "save-freeze-flags", false, "Save the passed freeze-flags to labreport.json")
+	cmd.Flags().BoolVar(&saveFlags, "save-freeze-flags", false, "Save the passed freeze-flags to unsareport.json")
 
 	return cmd
 }

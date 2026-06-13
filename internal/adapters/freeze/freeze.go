@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/UNSAReport/UNSAReport/internal/dependencies"
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 	"github.com/aymanbagabas/go-pty"
-	"github.com/christianmz565/lab-report/internal/dependencies"
-	"github.com/christianmz565/lab-report/internal/ports"
 	"github.com/taigrr/bubbleterm/emulator"
 )
 
@@ -40,7 +40,7 @@ func (a *Adapter) Render(ctx context.Context, resultPath string, commands []port
 		return "", fmt.Errorf("run in pty: %w", err)
 	}
 
-	tempInput, err := os.CreateTemp("", "lab-report-freeze-input-*.txt")
+	tempInput, err := os.CreateTemp("", "unsarep-freeze-input-*.txt")
 	if err != nil {
 		return output, fmt.Errorf("create temp input file: %w", err)
 	}

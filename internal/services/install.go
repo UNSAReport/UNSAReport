@@ -8,28 +8,31 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/christianmz565/lab-report/internal/ports"
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
 type InstallOptions struct {
-	Dest    string
-	Multi   bool
-	Session string
-	Repo    string
-	Ref     string
+	Dest     string
+	Multi    bool
+	Session  string
+	Repo     string
+	Ref      string
+	Template string
 }
 
 type InstallService struct {
-	Fetcher ports.TemplateFetcher
-	FS      ports.FileSystem
-	Config  ports.ConfigStore
+	Fetcher  ports.TemplateFetcher
+	FS       ports.FileSystem
+	Config   ports.ConfigStore
+	Registry ports.TemplateRegistry
 }
 
-func NewInstallService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore) *InstallService {
+func NewInstallService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry) *InstallService {
 	return &InstallService{
-		Fetcher: f,
-		FS:      fs,
-		Config:  c,
+		Fetcher:  f,
+		FS:       fs,
+		Config:   c,
+		Registry: r,
 	}
 }
 
@@ -51,7 +54,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		destDir = projectRoot
 		opt.Multi = cfg.MultiLab
 	} else {
-		cfg = ports.LabReportConfig{
+		cfg = ports.UnsareportConfig{
 			MultiLab: opt.Multi,
 			Sessions: []string{},
 			Prepare: ports.PrepareConfig{
@@ -84,17 +87,26 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		return fmt.Errorf("--session flag can only be used with multi-lab mode")
 	}
 
+	template, err := s.Registry.GetTemplate(opt.Template)
+	if err != nil {
+		return fmt.Errorf("get template: %w", err)
+	}
+
 	var files map[string][]byte
-	if info, err := s.FS.Stat(opt.Repo); err == nil && info.IsDir() {
-		files, err = s.Fetcher.LoadLocal(opt.Repo)
-		if err != nil {
-			return fmt.Errorf("load local templates: %w", err)
+	if template.LocalPath != "" {
+		if info, err := s.FS.Stat(template.LocalPath); err == nil && info.IsDir() {
+			files, err = s.Fetcher.LoadLocal(template.LocalPath)
+			if err != nil {
+				return fmt.Errorf("load local templates: %w", err)
+			}
 		}
-	} else {
-		files, err = s.Fetcher.Fetch(ctx, opt.Repo, opt.Ref)
+	} else if template.Repo != "" {
+		files, err = s.Fetcher.Fetch(ctx, template.Repo, template.Ref)
 		if err != nil {
 			return fmt.Errorf("fetch templates: %w", err)
 		}
+	} else {
+		return fmt.Errorf("template %q has no source", opt.Template)
 	}
 
 	m, err := LoadManifest(files)
@@ -109,7 +121,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	if opt.Session != "" {
 		fmt.Fprintf(os.Stdout, "Installing session '%s' into multi-lab project: %s\n", opt.Session, destDir)
 	} else {
-		fmt.Fprintf(os.Stdout, "Installing lab report template to: %s\n", destDir)
+		fmt.Fprintf(os.Stdout, "Installing %s template to: %s\n", template.Name, destDir)
 		if opt.Multi {
 			fmt.Fprintln(os.Stdout, "Mode: Multi-lab (--multi)")
 		}
@@ -151,9 +163,9 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		return fmt.Errorf("write config: %w", err)
 	}
 	if !hasConfig {
-		fmt.Fprintf(os.Stdout, "Created: labreport.json (Mode: %s)\n", map[bool]string{true: "multi", false: "single"}[opt.Multi])
+		fmt.Fprintf(os.Stdout, "Created: unsareport.json (Mode: %s)\n", map[bool]string{true: "multi", false: "single"}[opt.Multi])
 	} else {
-		fmt.Fprintf(os.Stdout, "Updated: labreport.json\n")
+		fmt.Fprintf(os.Stdout, "Updated: unsareport.json\n")
 	}
 
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
@@ -214,19 +226,19 @@ func substituteLab(entries []Entry, lab string) []Entry {
 	return out
 }
 
-func (s *InstallService) nextSteps(cfg ports.LabReportConfig) []string {
+func (s *InstallService) nextSteps(cfg ports.UnsareportConfig) []string {
 	if cfg.MultiLab {
 		return []string{
 			fmt.Sprintf("1. Edit l1/%s with your lab information", cfg.Prepare.Input.ReportFile),
 			fmt.Sprintf("2. Place your source code in l1/%s/", cfg.Prepare.Input.SrcDir),
 			"3. Compile the report:",
-			"   lab-report prepare l1",
+			"   unsarep prepare l1",
 		}
 	}
 	return []string{
 		fmt.Sprintf("1. Edit %s with your project information", cfg.Prepare.Input.ReportFile),
 		fmt.Sprintf("2. Place your source code in %s/", cfg.Prepare.Input.SrcDir),
 		"3. Compile the report:",
-		"   lab-report prepare",
+		"   unsarep prepare",
 	}
 }

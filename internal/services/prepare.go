@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 	"github.com/charmbracelet/huh"
-	"github.com/christianmz565/lab-report/internal/ports"
 )
 
 type PrepareOptions struct {
@@ -35,7 +35,7 @@ func NewPrepareService(c ports.Compiler, a ports.Archiver, fs ports.FileSystem, 
 
 type prepareContext struct {
 	projectRoot string
-	cfg         ports.LabReportConfig
+	cfg         ports.UnsareportConfig
 	isMulti     bool
 	labDir      string
 }
@@ -180,7 +180,7 @@ func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareCo
 	}
 
 	if !ok {
-		return prepareContext{}, fmt.Errorf("labreport.json not found in current or parent directories.\nAre you in a lab report project?")
+		return prepareContext{}, fmt.Errorf("unsareport.json not found in current or parent directories.\nAre you in a lab report project?")
 	}
 
 	pctx := prepareContext{
@@ -214,7 +214,7 @@ func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareCo
 
 	sessionValid := slices.Contains(pctx.cfg.Sessions, pctx.labDir)
 	if !sessionValid {
-		return pctx, fmt.Errorf("session '%s' is not registered in labreport.json", pctx.labDir)
+		return pctx, fmt.Errorf("session '%s' is not registered in unsareport.json", pctx.labDir)
 	}
 
 	return pctx, nil
@@ -314,7 +314,7 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 			if err := s.Config.WriteConfig(pctx.projectRoot, pctx.cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stdout, "Configuration saved to labreport.json\n")
+			fmt.Fprintf(os.Stdout, "Configuration saved to unsareport.json\n")
 			break
 		}
 	}

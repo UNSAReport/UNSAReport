@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"github.com/christianmz565/lab-report/internal/adapters/config"
-	"github.com/christianmz565/lab-report/internal/adapters/github"
-	"github.com/christianmz565/lab-report/internal/adapters/osfs"
-	"github.com/christianmz565/lab-report/internal/services"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/config"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/github"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/osfs"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/registry"
+	"github.com/UNSAReport/UNSAReport/internal/services"
 	"github.com/spf13/cobra"
 )
 
@@ -20,13 +21,13 @@ This command compares your local files against the latest versions in the reposi
 It prompts you to apply changes line-by-line (using a diff view) unless the --force
 flag is used.`,
 		Example: `  # Update the current project interactively
-  lab-report update
+  unsarep update
 
   # Force update all files without prompting
-  lab-report update --force
+  unsarep update --force
 
   # Update a specific session in a multi-lab repository
-  lab-report update l1`,
+  unsarep update l1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return cmd.Help()
@@ -38,15 +39,17 @@ flag is used.`,
 			fs := osfs.New()
 			fetcher := github.New()
 			cfg := config.New()
+			registryPath := findTemplatesDir()
+			reg := registry.New(registryPath)
 
-			svc := services.NewUpdateService(fetcher, fs, cfg)
+			svc := services.NewUpdateService(fetcher, fs, cfg, reg)
 			return svc.Execute(cmd.Context(), opt)
 		},
 	}
 
 	cmd.Flags().StringVar(&opt.Dest, "dest", "", "Destination directory (default: current working directory)")
 	cmd.Flags().BoolVarP(&opt.Force, "force", "f", false, "Apply all updates without prompting")
-	cmd.Flags().StringVar(&opt.Repo, "repo", "christianmz565/lab-report", "GitHub repo to fetch templates from (owner/repo)")
+	cmd.Flags().StringVar(&opt.Repo, "repo", "UNSAReport/templates", "GitHub repo to fetch templates from (owner/repo)")
 	cmd.Flags().StringVar(&opt.Ref, "ref", "main", "Git ref to fetch templates from")
 
 	return cmd
