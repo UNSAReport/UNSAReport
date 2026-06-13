@@ -5,14 +5,18 @@
 
 A command-line interface designed to automate and manage laboratory reports for the UNSA Software Engineering career. This tool streamlines the process of scaffolding projects, updating templates, capturing terminal output, and preparing final submissions.
 
-## Template Features
+## Templates
 
-The included Typst template provides specialized components for academic reports:
+Templates are maintained in a separate repository: [UNSAReport/templates](https://github.com/UNSAReport/templates).
 
-- **Metadata-driven Reports**: Define variables like `course_name`, `lab_title`, and `members` in your report to automatically populate the information tables.
-- **Lab Sections**: Use `#lab-section(title: "...", body: [...])` to create formatted sections with header bars.
-- **Advanced Code Blocks**: The `#code-block` component allows including source files directly with syntax highlighting and customizable snippets.
-- **Named Snippets**: Extract specific portions of your code by wrapping them with `// START-SNIPPET,name` and `// END-SNIPPET` markers in your source files.
+Available templates:
+
+| Template | Description |
+|----------|-------------|
+| `lab` | Single laboratory report |
+| `multi-lab` | Multiple laboratory sessions in one repository |
+
+Each template provides Typst components for academic reports: metadata-driven layouts, lab sections, code blocks with syntax highlighting, and named snippets. See the [templates README](https://github.com/UNSAReport/templates) for details on creating custom templates.
 
 ## Requirements
 
@@ -42,22 +46,21 @@ nix run github:UNSAReport/UNSAReport -- --help
 
 ### Initializing a Project
 
-To install the laboratory template in the current directory:
+To install a template into the current directory:
 
 ```bash
+# Interactive template picker
 unsarep install
+
+# Install a specific template
+unsarep install lab
+unsarep install multi-lab
 ```
 
-For a repository containing multiple laboratory sessions (e.g., `l1/`, `l2/`):
+For multi-lab repositories, add new sessions with:
 
 ```bash
-unsarep install --multi
-```
-
-To add a new session to an existing multi-lab repository:
-
-```bash
-unsarep install --session l3
+unsarep install multi-lab --session l3
 ```
 
 ### Updating Templates
@@ -120,7 +123,9 @@ Logs of the terminal output (including ANSI colors) are automatically saved in t
 
 ## Project Structure
 
-### Single Lab
+The structure depends on the template used. Examples from the available templates:
+
+### Single Lab (`lab` template)
 ```text
 .
 ├── unsareport.json    # Project configuration
@@ -137,7 +142,7 @@ Logs of the terminal output (including ANSI colors) are automatically saved in t
 └── submission/       # Generated PDF and ZIP
 ```
 
-### Multi Lab
+### Multi Lab (`multi-lab` template)
 ```text
 .
 ├── unsareport.json         # Project configuration
@@ -163,7 +168,8 @@ Logs of the terminal output (including ANSI colors) are automatically saved in t
 
 The `unsareport.json` file in your project root controls the behavior of the tool:
 
-- `multiLab`: (boolean) Indicates if the project is a multi-lab setup.
+- `template`: (string) The template used to install this project (e.g., `"lab"`, `"multi-lab"`).
+- `mode`: (string) The template mode: `"single"` or `"multi"`.
 - `sessions`: (array of strings) List of registered session directories (e.g., `["l1", "l2"]`) in a multi-lab setup. Managed automatically by `install --session`.
 - `capture`:
   - `columns`: (integer) The width of the terminal in characters (default: `120`).
