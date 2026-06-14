@@ -44,6 +44,7 @@ func (a *RemoteAdapter) ListTemplates() ([]ports.TemplateInfo, error) {
 		templates[i] = ports.TemplateInfo{
 			Name:        t.Name,
 			Description: t.Description,
+			Path:        t.Path,
 			Repo:        a.repo,
 			Ref:         a.ref,
 		}

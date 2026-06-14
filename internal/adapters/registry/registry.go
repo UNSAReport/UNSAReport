@@ -46,6 +46,7 @@ func (a *Adapter) loadLocalTemplates() {
 
 		a.templates = append(a.templates, ports.TemplateInfo{
 			Name:      name,
+			Path:      name,
 			LocalPath: filepath.Join(a.localDir, name),
 			Repo:      "UNSAReport/templates",
 			Ref:       "main",

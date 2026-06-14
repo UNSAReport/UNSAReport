@@ -108,6 +108,11 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		return fmt.Errorf("chdir to dest: %w", err)
 	}
 
+	template, err := s.Registry.GetTemplate(cfg.Template)
+	if err != nil {
+		return fmt.Errorf("get template: %w", err)
+	}
+
 	localSource := opt.Local
 	if localSource == "" {
 		localSource = cfg.LocalSource
@@ -120,13 +125,17 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 			return fmt.Errorf("load local templates: %w", err)
 		}
 	} else {
-		remoteFiles, err = s.Fetcher.Fetch(ctx, opt.Repo, opt.Ref)
+		remoteFiles, err = s.Fetcher.Fetch(ctx, opt.Repo, opt.Ref, template.Path)
 		if err != nil {
 			return fmt.Errorf("fetch templates: %w", err)
 		}
 	}
 
-	m, err := LoadManifest(remoteFiles)
+	manifestData, ok := remoteFiles["manifest.json"]
+	if !ok {
+		return fmt.Errorf("manifest.json not found in template %q", cfg.Template)
+	}
+	m, err := LoadAndValidateManifest(manifestData)
 	if err != nil {
 		return fmt.Errorf("load manifest: %w", err)
 	}

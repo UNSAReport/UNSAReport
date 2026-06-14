@@ -100,13 +100,17 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		}
 		cfg.LocalSource = opt.Local
 	} else {
-		files, err = s.Fetcher.Fetch(ctx, template.Repo, template.Ref)
+		files, err = s.Fetcher.Fetch(ctx, template.Repo, template.Ref, template.Path)
 		if err != nil {
 			return fmt.Errorf("fetch templates: %w", err)
 		}
 	}
 
-	m, err := LoadManifest(files)
+	manifestData, ok := files["manifest.json"]
+	if !ok {
+		return fmt.Errorf("manifest.json not found in template %q", template.Name)
+	}
+	m, err := LoadAndValidateManifest(manifestData)
 	if err != nil {
 		return fmt.Errorf("load manifest: %w", err)
 	}

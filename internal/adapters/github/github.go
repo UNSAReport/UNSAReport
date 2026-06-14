@@ -19,7 +19,7 @@ func New() *Adapter {
 	return &Adapter{}
 }
 
-func (a *Adapter) Fetch(ctx context.Context, repo, ref string) (map[string][]byte, error) {
+func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (map[string][]byte, error) {
 	parts := strings.Split(repo, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return nil, fmt.Errorf("invalid repo %q (expected owner/repo)", repo)
@@ -54,10 +54,7 @@ func (a *Adapter) Fetch(ctx context.Context, repo, ref string) (map[string][]byt
 		return nil, fmt.Errorf("read zip: %w", err)
 	}
 
-	prefix, err := findTemplatePrefix(zr)
-	if err != nil {
-		return nil, err
-	}
+	prefix := name + "-" + ref + "/" + templatePath + "/"
 
 	out := make(map[string][]byte)
 	for _, f := range zr.File {
@@ -130,16 +127,6 @@ func (a *Adapter) LoadLocal(dir string) (map[string][]byte, error) {
 	}
 
 	return clean, nil
-}
-
-func findTemplatePrefix(zr *zip.Reader) (string, error) {
-	for _, f := range zr.File {
-		if idx := strings.Index(f.Name, "/template/"); idx != -1 {
-			root := f.Name[:idx+1]
-			return root + "template/", nil
-		}
-	}
-	return "", fmt.Errorf("template/ directory not found in repository archive")
 }
 
 func (a *Adapter) FetchRaw(ctx context.Context, repo, ref, path string) ([]byte, error) {

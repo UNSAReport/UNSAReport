@@ -3,6 +3,7 @@ package ports
 type TemplateInfo struct {
 	Name        string
 	Description string
+	Path        string
 	Repo        string
 	Ref         string
 	LocalPath   string
