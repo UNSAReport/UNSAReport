@@ -25,6 +25,7 @@ type PrepareConfig struct {
 }
 
 type UnsareportConfig struct {
+	Schema      string        `json:"$schema,omitempty"`
 	Template    string        `json:"template"`
 	Mode        string        `json:"mode"`
 	LocalSource string        `json:"localSource,omitempty"`

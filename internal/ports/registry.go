@@ -16,6 +16,7 @@ type TemplateMetadata struct {
 }
 
 type RootManifest struct {
+	Version   string             `json:"version,omitempty"`
 	Templates []TemplateMetadata `json:"templates"`
 }
 

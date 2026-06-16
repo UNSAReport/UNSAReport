@@ -1,3 +1,5 @@
 package cmd
 
-var Version = "1.0.0"
+import "github.com/UNSAReport/UNSAReport/internal/ports"
+
+var Version = ports.Version
