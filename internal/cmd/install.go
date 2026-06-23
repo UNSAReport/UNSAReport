@@ -30,6 +30,12 @@ If no template is specified, an interactive picker will be shown.`,
   # Install a specific template
   unsarep install lab
 
+  # Install a specific version
+  unsarep install lab@1.0.0
+
+  # Install with version range
+  unsarep install lab@^1.0.0
+
   # Install in a specific directory
   unsarep install lab --dest ./my-reports
 
@@ -67,8 +73,10 @@ If no template is specified, an interactive picker will be shown.`,
 			cfg := config.New()
 
 			reg := registry.NewRemote(opt.Repo, opt.Ref, fetcher)
+			compReg := registry.NewComponentRegistry("UNSAReport/components", "main", fetcher)
+			compSvc := services.NewComponentService(fetcher, fs, cfg, compReg)
 
-			svc := services.NewInstallService(fetcher, fs, cfg, reg)
+			svc := services.NewInstallService(fetcher, fs, cfg, reg, compSvc)
 			return svc.Execute(cmd.Context(), opt)
 		},
 	}

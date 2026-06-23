@@ -25,17 +25,21 @@ type PrepareConfig struct {
 }
 
 type UnsareportConfig struct {
-	Schema      string        `json:"$schema,omitempty"`
-	Template    string        `json:"template"`
-	Mode        string        `json:"mode"`
-	LocalSource string        `json:"localSource,omitempty"`
-	Sessions    []string      `json:"sessions"`
-	Capture     CaptureConfig `json:"capture"`
-	Prepare     PrepareConfig `json:"prepare"`
+	Schema          string                         `json:"$schema,omitempty"`
+	Template        string                         `json:"template"`
+	TemplateVersion string                         `json:"templateVersion,omitempty"`
+	Mode            string                         `json:"mode"`
+	LocalSource     string                         `json:"localSource,omitempty"`
+	Sessions        []string                       `json:"sessions"`
+	Capture         CaptureConfig                  `json:"capture"`
+	Prepare         PrepareConfig                  `json:"prepare"`
+	Components      map[string]ComponentConfigEntry `json:"components,omitempty"`
 }
 
 type ConfigStore interface {
 	FindProjectRoot(startDir string) (projectRoot string, cfg UnsareportConfig, ok bool, err error)
 	ReadConfig(destDir string) (cfg UnsareportConfig, ok bool, err error)
 	WriteConfig(destDir string, cfg UnsareportConfig) error
+	ReadLockfile(destDir string) (Lockfile, error)
+	WriteLockfile(destDir string, lf Lockfile) error
 }

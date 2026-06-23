@@ -32,6 +32,7 @@ func init() {
 		newUpdateCmd(),
 		newPrepareCmd(),
 		newCaptureCmd(),
+		newComponentCmd(),
 	)
 
 	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {

@@ -91,7 +91,13 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 	generatedReportName := ApplyTemplate(pctx.cfg.Prepare.Output.FileTemplate, vars, reportWord)
 
 	fmt.Fprintln(os.Stdout, "Compiling typst report...")
-	if err := s.Compiler.Compile(ctx, reportPath, reportPDF, generatedReportName); err != nil {
+	inputs := map[string]string{"title": generatedReportName}
+	if pctx.isMulti {
+		inputs["unsarep-root"] = "/" + pctx.labDir + "/"
+	} else {
+		inputs["unsarep-root"] = "/"
+	}
+	if err := s.Compiler.Compile(ctx, reportPath, reportPDF, inputs); err != nil {
 		return fmt.Errorf("compile report: %w", err)
 	}
 

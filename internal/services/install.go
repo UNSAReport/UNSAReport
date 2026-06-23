@@ -21,18 +21,20 @@ type InstallOptions struct {
 }
 
 type InstallService struct {
-	Fetcher  ports.TemplateFetcher
-	FS       ports.FileSystem
-	Config   ports.ConfigStore
-	Registry ports.TemplateRegistry
+	Fetcher          ports.TemplateFetcher
+	FS               ports.FileSystem
+	Config           ports.ConfigStore
+	Registry         ports.TemplateRegistry
+	ComponentService *ComponentService
 }
 
-func NewInstallService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry) *InstallService {
+func NewInstallService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry, cs *ComponentService) *InstallService {
 	return &InstallService{
-		Fetcher:  f,
-		FS:       fs,
-		Config:   c,
-		Registry: r,
+		Fetcher:          f,
+		FS:               fs,
+		Config:           c,
+		Registry:         r,
+		ComponentService: cs,
 	}
 }
 
@@ -86,9 +88,19 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		return fmt.Errorf("--session flag can only be used with multi-mode templates")
 	}
 
-	template, err := s.Registry.GetTemplate(opt.Template)
-	if err != nil {
-		return fmt.Errorf("get template: %w", err)
+	name, rangeSpec := parseTemplateArg(opt.Template)
+
+	var template ports.TemplateInfo
+	if opt.Local != "" {
+		template, err = s.Registry.GetTemplateVersion(name, rangeSpec)
+		if err != nil {
+			return fmt.Errorf("get template: %w", err)
+		}
+	} else {
+		template, err = s.Registry.GetTemplateVersion(name, rangeSpec)
+		if err != nil {
+			return fmt.Errorf("get template: %w", err)
+		}
 	}
 
 	var files map[string][]byte
@@ -128,6 +140,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
 
 	cfg.Template = template.Name
+	cfg.TemplateVersion = template.Version
 	cfg.Mode = m.Mode
 
 	if m.Mode == "multi" {
@@ -181,6 +194,33 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		fmt.Fprintf(os.Stdout, "Created: unsareport.json (Mode: %s)\n", cfg.Mode)
 	} else {
 		fmt.Fprintf(os.Stdout, "Updated: unsareport.json\n")
+	}
+
+	components := m.GetComponents()
+	if len(components) > 0 && s.ComponentService != nil {
+		if err := s.FS.Chdir(destDir); err != nil {
+			return fmt.Errorf("chdir to dest: %w", err)
+		}
+
+		fmt.Fprintf(os.Stdout, "\n%s\n", "Downloading components...")
+		fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+
+		for name, rangeSpec := range components {
+			fmt.Fprintf(os.Stdout, "  Component: %s (range: %s)\n", name, rangeSpec)
+		}
+
+		results, err := s.ComponentService.AddFromManifest(ctx, components)
+		if err != nil {
+			return fmt.Errorf("download components: %w", err)
+		}
+
+		for _, r := range results {
+			fmt.Fprintf(os.Stdout, "    -> Resolved: %s (version: %s)\n", r.Name, r.ResolvedVersion)
+			fmt.Fprintf(os.Stdout, "  Created: components/%s.typ\n", r.Name)
+		}
+
+		fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+		fmt.Fprintf(os.Stdout, "Components installed: %d\n", len(results))
 	}
 
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
@@ -256,4 +296,11 @@ func (s *InstallService) nextSteps(cfg ports.UnsareportConfig) []string {
 		"3. Compile the report:",
 		"   unsarep prepare",
 	}
+}
+
+func parseTemplateArg(arg string) (name, rangeSpec string) {
+	if i := strings.Index(arg, "@"); i != -1 {
+		return arg[:i], arg[i+1:]
+	}
+	return arg, "latest"
 }

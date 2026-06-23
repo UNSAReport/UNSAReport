@@ -12,6 +12,10 @@
       "type": "string",
       "description": "The template to use for the report"
     },
+    "templateVersion": {
+      "type": "string",
+      "description": "The installed template version"
+    },
     "mode": {
       "type": "string",
       "enum": ["single", "multi"],
@@ -27,6 +31,24 @@
         "type": "string"
       },
       "description": "List of lab sessions in multi-lab mode"
+    },
+    "components": {
+      "type": "object",
+      "description": "Installed components with their versions",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Installed component version"
+          },
+          "installed_at": {
+            "type": "string",
+            "description": "Installation timestamp (RFC3339)"
+          }
+        },
+        "required": ["version", "installed_at"]
+      }
     },
     "capture": {
       "type": "object",

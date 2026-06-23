@@ -69,12 +69,16 @@ func (a *Adapter) QueryVars(ctx context.Context, reportPath string) (map[string]
 	return vars, nil
 }
 
-func (a *Adapter) Compile(ctx context.Context, reportPath, reportPDF, title string) error {
+func (a *Adapter) Compile(ctx context.Context, reportPath, reportPDF string, inputs map[string]string) error {
 	if err := dependencies.Check(dependencies.Typst); err != nil {
 		return err
 	}
 
-	args := []string{"compile", "--root", ".", "--input", fmt.Sprintf("title=%s", title), reportPath, reportPDF}
+	args := []string{"compile", "--root", "."}
+	for k, v := range inputs {
+		args = append(args, "--input", k+"="+v)
+	}
+	args = append(args, reportPath, reportPDF)
 
 	cmd := exec.CommandContext(ctx, "typst", args...)
 	cmd.Stdout = os.Stdout
