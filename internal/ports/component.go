@@ -33,8 +33,19 @@ type LockfilePackage struct {
 	Integrity string `json:"integrity"`
 }
 
+type LockfileTemplateFile struct {
+	Integrity string `json:"integrity"`
+}
+
+type LockfileTemplate struct {
+	Name    string                          `json:"name"`
+	Version string                          `json:"version"`
+	Files   map[string]LockfileTemplateFile `json:"files"`
+}
+
 type Lockfile struct {
 	LockfileVersion string                     `json:"lockfile_version"`
 	RemoteRegistry  string                     `json:"remote_registry,omitempty"`
+	Template        *LockfileTemplate          `json:"template,omitempty"`
 	Packages        map[string]LockfilePackage `json:"packages"`
 }

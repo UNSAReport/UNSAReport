@@ -46,6 +46,7 @@ func (s *ComponentService) Add(ctx context.Context, name, rangeSpec string, forc
 
 func (s *ComponentService) AddFromManifest(ctx context.Context, components map[string]string) ([]ComponentInstallResult, error) {
 	var results []ComponentInstallResult
+	visited := make(map[string]bool)
 
 	for name, rangeSpec := range components {
 		resolvedVersion, info, cv, err := s.Registry.ResolveVersion(name, rangeSpec)
@@ -53,7 +54,7 @@ func (s *ComponentService) AddFromManifest(ctx context.Context, components map[s
 			return results, fmt.Errorf("resolve %s: %w", name, err)
 		}
 
-		if err := s.addResolved(ctx, name, false, resolvedVersion, info, cv); err != nil {
+		if err := s.resolveAndInstallDeps(ctx, name, resolvedVersion, info, cv, visited); err != nil {
 			return results, fmt.Errorf("add %s: %w", name, err)
 		}
 
@@ -66,6 +67,31 @@ func (s *ComponentService) AddFromManifest(ctx context.Context, components map[s
 	}
 
 	return results, nil
+}
+
+func (s *ComponentService) resolveAndInstallDeps(ctx context.Context, name string, resolvedVersion *semver.Version, info *ports.ComponentInfo, cv *ports.ComponentVersion, visited map[string]bool) error {
+	if visited[name] {
+		return nil
+	}
+	visited[name] = true
+
+	for _, dep := range cv.Dependencies {
+		depName, depRange := parseComponentDep(dep)
+		if visited[depName] {
+			continue
+		}
+
+		depVersion, depInfo, depCv, err := s.Registry.ResolveVersion(depName, depRange)
+		if err != nil {
+			return fmt.Errorf("resolve dependency %s: %w", depName, err)
+		}
+
+		if err := s.resolveAndInstallDeps(ctx, depName, depVersion, depInfo, depCv, visited); err != nil {
+			return err
+		}
+	}
+
+	return s.addResolved(ctx, name, false, resolvedVersion, info, cv)
 }
 
 func (s *ComponentService) addResolved(ctx context.Context, name string, force bool, resolvedVersion *semver.Version, info *ports.ComponentInfo, cv *ports.ComponentVersion) error {
@@ -113,6 +139,18 @@ func (s *ComponentService) addResolved(ctx context.Context, name string, force b
 	data, err := s.Registry.FetchComponentFile(*info, cv)
 	if err != nil {
 		return fmt.Errorf("fetch component: %w", err)
+	}
+
+	if len(data) == 0 {
+		return fmt.Errorf("component %s returned empty data", name)
+	}
+
+	for _, dep := range cv.Dependencies {
+		depName, depRange := parseComponentDep(dep)
+		_, _, _, depErr := s.Registry.ResolveVersion(depName, depRange)
+		if depErr != nil {
+			return fmt.Errorf("dependency %s@%s is not satisfiable: %w", depName, depRange, depErr)
+		}
 	}
 
 	if err := s.FS.EnsureDir(filepath.Dir(localPath)); err != nil {
@@ -289,4 +327,11 @@ func (s *ComponentService) updateSingle(ctx context.Context, projectRoot string,
 	}
 
 	return nil
+}
+
+func parseComponentDep(dep string) (name, rangeSpec string) {
+	if i := strings.Index(dep, "@"); i != -1 {
+		return dep[:i], dep[i+1:]
+	}
+	return dep, "*"
 }

@@ -1,14 +1,18 @@
 package cmd
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/UNSAReport/UNSAReport/internal/adapters/config"
 	"github.com/UNSAReport/UNSAReport/internal/adapters/github"
 	"github.com/UNSAReport/UNSAReport/internal/adapters/osfs"
 	"github.com/UNSAReport/UNSAReport/internal/adapters/registry"
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 	"github.com/UNSAReport/UNSAReport/internal/services"
 	"github.com/spf13/cobra"
 )
@@ -75,6 +79,8 @@ func newComponentAddCmd() *cobra.Command {
 			if err := svc.Add(cmd.Context(), name, rangeSpec, force); err != nil {
 				return err
 			}
+
+			checkTemplateCompatibility(cmd.Context(), fetcher, cfg, name)
 
 			fmt.Fprintf(os.Stdout, "Added: %s\n", name)
 			return nil
@@ -145,4 +151,61 @@ func parseComponentArg(arg string) (name, rangeSpec string) {
 		return arg[:i], arg[i+1:]
 	}
 	return arg, "latest"
+}
+
+func checkTemplateCompatibility(ctx context.Context, fetcher ports.TemplateFetcher, cfgStore ports.ConfigStore, componentName string) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
+	_, projectCfg, ok, err := cfgStore.FindProjectRoot(cwd)
+	if err != nil || !ok || projectCfg.Template == "" {
+		return
+	}
+
+	tmpl, err := registry.NewRemote(fetcher).GetTemplateVersion(projectCfg.Template, projectCfg.TemplateVersion)
+	if err != nil {
+		return
+	}
+
+	manifestData, err := fetcher.FetchRaw(ctx, ports.DefaultTemplateRepo, ports.DefaultRef, tmpl.Path+"/manifest.json")
+	if err != nil {
+		return
+	}
+
+	var manifest struct {
+		Components map[string]string `json:"components"`
+	}
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		return
+	}
+
+	templateRange, exists := manifest.Components[componentName]
+	if !exists {
+		fmt.Fprintf(os.Stdout, "Warning: Component %s is not required by the current template\n", componentName)
+		return
+	}
+
+	compReg := registry.NewComponentRegistry(fetcher)
+	resolved, _, _, err := compReg.ResolveVersion(componentName, templateRange)
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "Warning: Could not verify compatibility with template requirement %s@%s\n", componentName, templateRange)
+		return
+	}
+
+	componentVersion, _, _, err := compReg.ResolveVersion(componentName, "latest")
+	if err != nil {
+		return
+	}
+
+	constraint, err := semver.NewConstraint(templateRange)
+	if err != nil {
+		return
+	}
+
+	if ok, _ := constraint.Validate(componentVersion); !ok {
+		fmt.Fprintf(os.Stdout, "Warning: Installed version %s may be incompatible with template requirement %s@%s (resolved: %s)\n",
+			componentVersion, componentName, templateRange, resolved)
+	}
 }

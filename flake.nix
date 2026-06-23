@@ -33,7 +33,7 @@
       {
         packages.default = pkgs.buildGoModule rec {
           pname = "unsarep";
-          version = "0.0.1";
+          version = "1.0.0";
           src = ./.;
           subPackages = [ "cmd/unsarep" ];
 

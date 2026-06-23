@@ -144,6 +144,10 @@ func (m *Manifest) GetComponents() map[string]string {
 	return m.Components
 }
 
+func (m *Manifest) GetEntries() interface{} {
+	return m.Entries
+}
+
 func (m *Manifest) GetSingleEntries() ([]Entry, error) {
 	if m.Mode != "single" {
 		return nil, fmt.Errorf("manifest is not single-mode")

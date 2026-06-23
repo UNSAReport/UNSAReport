@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/UNSAReport/UNSAReport/internal/adapters/config"
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
@@ -213,6 +214,8 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		fmt.Fprintf(os.Stdout, "Components installed: %d\n", len(results))
 	}
 
+	s.recordTemplateLockfile(destDir, cfg, m, files)
+
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
 	fmt.Fprintln(os.Stdout, "Installation complete!")
 	fmt.Fprintln(os.Stdout)
@@ -250,6 +253,7 @@ func (s *InstallService) applyEntryInstall(files map[string][]byte, destDir stri
 			return nil
 		}
 		if s.FS.FileExists(dstPath) {
+			fmt.Fprintf(os.Stdout, "Skipped (exists): %s\n", e.Dest)
 			return nil
 		}
 		if err := s.FS.WriteFileAtomic(dstPath, data, 0o644); err != nil {
@@ -293,4 +297,58 @@ func parseTemplateArg(arg string) (name, rangeSpec string) {
 		return arg[:i], arg[i+1:]
 	}
 	return arg, "latest"
+}
+
+func (s *InstallService) recordTemplateLockfile(destDir string, cfg ports.UnsareportConfig, m *Manifest, remoteFiles map[string][]byte) {
+	entries := m.GetEntries()
+	if entries == nil {
+		return
+	}
+
+	templateFiles := make(map[string]ports.LockfileTemplateFile)
+	var allEntries []Entry
+	switch e := entries.(type) {
+	case []Entry:
+		allEntries = e
+	case MultiEntrySet:
+		allEntries = append(allEntries, e.Root...)
+		allEntries = append(allEntries, e.LabFiles...)
+	}
+
+	for _, entry := range allEntries {
+		if entry.Kind != KindFile {
+			continue
+		}
+		data, ok := remoteFiles[entry.Src]
+		if !ok {
+			continue
+		}
+		dstPath := filepath.Join(destDir, filepath.FromSlash(entry.Dest))
+		if !s.FS.FileExists(dstPath) {
+			continue
+		}
+		localData, err := s.FS.ReadFile(dstPath)
+		if err != nil {
+			continue
+		}
+		if !s.FS.SameContent(localData, data) {
+			localData = data
+		}
+		templateFiles[entry.Dest] = ports.LockfileTemplateFile{
+			Integrity: config.ComputeIntegrity(localData),
+		}
+	}
+
+	lf, err := s.Config.ReadLockfile(destDir)
+	if err != nil {
+		return
+	}
+
+	lf.Template = &ports.LockfileTemplate{
+		Name:    cfg.Template,
+		Version: cfg.TemplateVersion,
+		Files:   templateFiles,
+	}
+
+	s.Config.WriteLockfile(destDir, lf)
 }
