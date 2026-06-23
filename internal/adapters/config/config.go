@@ -80,8 +80,7 @@ func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, erro
 func (a *Adapter) WriteConfig(destDir string, cfg ports.UnsareportConfig) error {
 	path := filepath.Join(destDir, "unsareport.json")
 
-	// Set the schema version
-	cfg.Schema = fmt.Sprintf("https://raw.githubusercontent.com/UNSAReport/UNSAReport/v%s/schemas/unsareport-v%s.schema.json", ports.Version, ports.Version)
+	cfg.Schema = fmt.Sprintf("https://raw.githubusercontent.com/UNSAReport/UNSAReport/v%s/schemas/unsareport.schema.json", ports.Version)
 
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {

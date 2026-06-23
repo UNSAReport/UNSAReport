@@ -10,15 +10,12 @@ import (
 )
 
 type registryTemplateFile struct {
-	Version    string                             `json:"version"`
-	Templates  map[string]registryTemplateEntry   `json:"templates"`
+	Templates map[string]registryTemplateEntry `json:"templates"`
 }
 
 type registryTemplateEntry struct {
-	Description string                            `json:"description"`
-	Repo        string                            `json:"repo"`
-	Ref         string                            `json:"ref"`
-	DistTags    map[string]string                 `json:"dist-tags"`
+	Description string                             `json:"description"`
+	DistTags    map[string]string                  `json:"dist-tags"`
 	Versions    map[string]registryTemplateVersion `json:"versions"`
 }
 
@@ -27,22 +24,18 @@ type registryTemplateVersion struct {
 }
 
 type RemoteAdapter struct {
-	repo    string
-	ref     string
 	fetcher ports.TemplateFetcher
 }
 
-func NewRemote(repo, ref string, fetcher ports.TemplateFetcher) *RemoteAdapter {
+func NewRemote(fetcher ports.TemplateFetcher) *RemoteAdapter {
 	return &RemoteAdapter{
-		repo:    repo,
-		ref:     ref,
 		fetcher: fetcher,
 	}
 }
 
 func (a *RemoteAdapter) fetchRegistry() (*registryTemplateFile, error) {
 	ctx := context.Background()
-	data, err := a.fetcher.FetchRaw(ctx, a.repo, a.ref, "registry.json")
+	data, err := a.fetcher.FetchRaw(ctx, ports.DefaultTemplateRepo, ports.DefaultRef, "registry.json")
 	if err != nil {
 		return nil, fmt.Errorf("fetch registry.json: %w", err)
 	}
@@ -59,8 +52,6 @@ func (a *RemoteAdapter) convertTemplate(name string, entry registryTemplateEntry
 	return ports.TemplateInfo{
 		Name:        name,
 		Description: entry.Description,
-		Repo:        entry.Repo,
-		Ref:         entry.Ref,
 	}
 }
 
@@ -132,7 +123,5 @@ func (a *RemoteAdapter) GetTemplateVersion(name string, rangeSpec string) (ports
 		Description: entry.Description,
 		Version:     resolved.String(),
 		Path:        vEntry.Path,
-		Repo:        entry.Repo,
-		Ref:         entry.Ref,
 	}, nil
 }

@@ -25,14 +25,14 @@ type PrepareConfig struct {
 }
 
 type UnsareportConfig struct {
-	Schema          string                         `json:"$schema,omitempty"`
-	Template        string                         `json:"template"`
-	TemplateVersion string                         `json:"templateVersion,omitempty"`
-	Mode            string                         `json:"mode"`
-	LocalSource     string                         `json:"localSource,omitempty"`
-	Sessions        []string                       `json:"sessions"`
-	Capture         CaptureConfig                  `json:"capture"`
-	Prepare         PrepareConfig                  `json:"prepare"`
+	Schema          string                          `json:"$schema,omitempty"`
+	Template        string                          `json:"template"`
+	TemplateVersion string                          `json:"templateVersion,omitempty"`
+	Mode            string                          `json:"mode"`
+	LocalSource     string                          `json:"localSource,omitempty"`
+	Sessions        []string                        `json:"sessions"`
+	Capture         CaptureConfig                   `json:"capture"`
+	Prepare         PrepareConfig                   `json:"prepare"`
 	Components      map[string]ComponentConfigEntry `json:"components,omitempty"`
 }
 

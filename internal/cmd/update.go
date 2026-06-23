@@ -42,7 +42,7 @@ flag is used.`,
 			fs := osfs.New()
 			fetcher := github.New()
 			cfg := config.New()
-			reg := registry.NewRemote(opt.Repo, opt.Ref, fetcher)
+			reg := registry.NewRemote(fetcher)
 
 			svc := services.NewUpdateService(fetcher, fs, cfg, reg)
 			return svc.Execute(cmd.Context(), opt)
@@ -51,12 +51,7 @@ flag is used.`,
 
 	cmd.Flags().StringVar(&opt.Dest, "dest", "", "Destination directory (default: current working directory)")
 	cmd.Flags().BoolVarP(&opt.Force, "force", "f", false, "Apply all updates without prompting")
-	cmd.Flags().StringVar(&opt.Repo, "repo", "UNSAReport/templates", "GitHub repo to fetch templates from (owner/repo)")
-	cmd.Flags().StringVar(&opt.Ref, "ref", "main", "Git ref to fetch templates from")
 	cmd.Flags().StringVar(&opt.Local, "local", "", "Local directory containing template files to update from")
-
-	cmd.MarkFlagsMutuallyExclusive("local", "repo")
-	cmd.MarkFlagsMutuallyExclusive("local", "ref")
 
 	return cmd
 }

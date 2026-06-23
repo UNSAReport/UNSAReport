@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/UNSAReport/UNSAReport/internal/adapters/config"
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
@@ -29,13 +30,45 @@ func NewComponentService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.C
 }
 
 type ComponentInstallResult struct {
-	Name           string
-	RangeSpec      string
+	Name            string
+	RangeSpec       string
 	ResolvedVersion string
-	Status         string
+	Status          string
 }
 
 func (s *ComponentService) Add(ctx context.Context, name, rangeSpec string, force bool) error {
+	resolvedVersion, info, cv, err := s.Registry.ResolveVersion(name, rangeSpec)
+	if err != nil {
+		return fmt.Errorf("resolve version: %w", err)
+	}
+	return s.addResolved(ctx, name, force, resolvedVersion, info, cv)
+}
+
+func (s *ComponentService) AddFromManifest(ctx context.Context, components map[string]string) ([]ComponentInstallResult, error) {
+	var results []ComponentInstallResult
+
+	for name, rangeSpec := range components {
+		resolvedVersion, info, cv, err := s.Registry.ResolveVersion(name, rangeSpec)
+		if err != nil {
+			return results, fmt.Errorf("resolve %s: %w", name, err)
+		}
+
+		if err := s.addResolved(ctx, name, false, resolvedVersion, info, cv); err != nil {
+			return results, fmt.Errorf("add %s: %w", name, err)
+		}
+
+		results = append(results, ComponentInstallResult{
+			Name:            name,
+			RangeSpec:       rangeSpec,
+			ResolvedVersion: resolvedVersion.String(),
+			Status:          "installed",
+		})
+	}
+
+	return results, nil
+}
+
+func (s *ComponentService) addResolved(ctx context.Context, name string, force bool, resolvedVersion *semver.Version, info *ports.ComponentInfo, cv *ports.ComponentVersion) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {
 		return fmt.Errorf("get cwd: %w", err)
@@ -47,11 +80,6 @@ func (s *ComponentService) Add(ctx context.Context, name, rangeSpec string, forc
 	}
 	if !ok {
 		return fmt.Errorf("unsareport.json not found. Are you in a project directory?")
-	}
-
-	resolvedVersion, info, cv, err := s.Registry.ResolveVersion(name, rangeSpec)
-	if err != nil {
-		return fmt.Errorf("resolve version: %w", err)
 	}
 
 	localPath := filepath.Join(projectRoot, "components", name+".typ")
@@ -107,7 +135,7 @@ func (s *ComponentService) Add(ctx context.Context, name, rangeSpec string, forc
 	lockKey := "components/" + name + ".typ"
 	lf.Packages[lockKey] = ports.LockfilePackage{
 		Version:   resolvedVersion.String(),
-		Resolved:  fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", info.Repo, info.Ref, cv.Path),
+		Resolved:  fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", ports.DefaultComponentRepo, ports.DefaultRef, cv.Path),
 		Integrity: config.ComputeIntegrity(data),
 	}
 
@@ -130,30 +158,6 @@ func (s *ComponentService) Add(ctx context.Context, name, rangeSpec string, forc
 	return nil
 }
 
-func (s *ComponentService) AddFromManifest(ctx context.Context, components map[string]string) ([]ComponentInstallResult, error) {
-	var results []ComponentInstallResult
-
-	for name, rangeSpec := range components {
-		resolvedVersion, _, _, err := s.Registry.ResolveVersion(name, rangeSpec)
-		if err != nil {
-			return results, fmt.Errorf("resolve %s: %w", name, err)
-		}
-
-		if err := s.Add(ctx, name, rangeSpec, false); err != nil {
-			return results, fmt.Errorf("add %s: %w", name, err)
-		}
-
-		results = append(results, ComponentInstallResult{
-			Name:            name,
-			RangeSpec:       rangeSpec,
-			ResolvedVersion: resolvedVersion.String(),
-			Status:          "installed",
-		})
-	}
-
-	return results, nil
-}
-
 func (s *ComponentService) Remove(ctx context.Context, name string) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {
@@ -166,15 +170,6 @@ func (s *ComponentService) Remove(ctx context.Context, name string) error {
 	}
 	if !ok {
 		return fmt.Errorf("unsareport.json not found. Are you in a project directory?")
-	}
-
-	if cfg.Components != nil {
-		for otherName, entry := range cfg.Components {
-			if otherName == name {
-				continue
-			}
-			_ = entry
-		}
 	}
 
 	localPath := filepath.Join(projectRoot, "components", name+".typ")

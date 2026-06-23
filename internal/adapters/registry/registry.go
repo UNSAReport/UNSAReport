@@ -50,8 +50,6 @@ func (a *Adapter) loadRegistry() {
 			Name:        name,
 			Description: entry.Description,
 			LocalPath:   filepath.Join(a.localDir, name),
-			Repo:        entry.Repo,
-			Ref:         entry.Ref,
 		})
 	}
 }
@@ -121,8 +119,6 @@ func (a *Adapter) GetTemplateVersion(name string, rangeSpec string) (ports.Templ
 		Version:     resolved.String(),
 		Path:        vEntry.Path,
 		LocalPath:   filepath.Join(a.localDir, vEntry.Path),
-		Repo:        entry.Repo,
-		Ref:         entry.Ref,
 	}, nil
 }
 

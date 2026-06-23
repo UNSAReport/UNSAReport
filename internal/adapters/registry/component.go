@@ -10,14 +10,11 @@ import (
 )
 
 type registryFile struct {
-	Version    string                            `json:"version"`
 	Components map[string]registryComponentEntry `json:"components"`
 }
 
 type registryComponentEntry struct {
 	Description string                          `json:"description"`
-	Repo        string                          `json:"repo"`
-	Ref         string                          `json:"ref"`
 	DistTags    map[string]string               `json:"dist-tags"`
 	Versions    map[string]registryVersionEntry `json:"versions"`
 }
@@ -28,22 +25,18 @@ type registryVersionEntry struct {
 }
 
 type ComponentRegistryAdapter struct {
-	defaultRepo string
-	defaultRef  string
-	fetcher     ports.TemplateFetcher
+	fetcher ports.TemplateFetcher
 }
 
-func NewComponentRegistry(defaultRepo, defaultRef string, fetcher ports.TemplateFetcher) *ComponentRegistryAdapter {
+func NewComponentRegistry(fetcher ports.TemplateFetcher) *ComponentRegistryAdapter {
 	return &ComponentRegistryAdapter{
-		defaultRepo: defaultRepo,
-		defaultRef:  defaultRef,
-		fetcher:     fetcher,
+		fetcher: fetcher,
 	}
 }
 
 func (a *ComponentRegistryAdapter) fetchRegistry() (*registryFile, error) {
 	ctx := context.Background()
-	data, err := a.fetcher.FetchRaw(ctx, a.defaultRepo, a.defaultRef, "registry.json")
+	data, err := a.fetcher.FetchRaw(ctx, ports.DefaultComponentRepo, ports.DefaultRef, "registry.json")
 	if err != nil {
 		return nil, fmt.Errorf("fetch registry.json: %w", err)
 	}
@@ -77,8 +70,6 @@ func (a *ComponentRegistryAdapter) convertComponent(name string, entry registryC
 	return ports.ComponentInfo{
 		Name:        name,
 		Description: entry.Description,
-		Repo:        entry.Repo,
-		Ref:         entry.Ref,
 		DistTags:    distTags,
 		Versions:    versions,
 	}
@@ -139,5 +130,5 @@ func (a *ComponentRegistryAdapter) ResolveVersion(name string, rangeSpec string)
 
 func (a *ComponentRegistryAdapter) FetchComponentFile(info ports.ComponentInfo, cv *ports.ComponentVersion) ([]byte, error) {
 	ctx := context.Background()
-	return a.fetcher.FetchRaw(ctx, info.Repo, info.Ref, cv.Path)
+	return a.fetcher.FetchRaw(ctx, ports.DefaultComponentRepo, ports.DefaultRef, cv.Path)
 }

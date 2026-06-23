@@ -11,8 +11,6 @@ type ComponentVersion struct {
 type ComponentInfo struct {
 	Name        string                       `json:"-"`
 	Description string                       `json:"description"`
-	Repo        string                       `json:"repo"`
-	Ref         string                       `json:"ref"`
 	DistTags    map[string]*semver.Version   `json:"dist-tags"`
 	Versions    map[string]*ComponentVersion `json:"versions"`
 }

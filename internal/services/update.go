@@ -17,8 +17,6 @@ type UpdateOptions struct {
 	Dest    string
 	Force   bool
 	Session string
-	Repo    string
-	Ref     string
 	Local   string
 }
 
@@ -69,39 +67,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		isMulti = cfg.Mode == "multi"
 		destDir = projectRoot
 	} else {
-		defaultCfg := ports.UnsareportConfig{
-			Mode:     "",
-			Sessions: []string{},
-			Prepare: ports.PrepareConfig{
-				Input: ports.PrepareInputConfig{
-					SrcDir:     "src",
-					ReportFile: "report.typ",
-				},
-				Output: ports.PrepareOutputConfig{
-					SubmissionDir: "submission",
-					FileTemplate:  "{output_type}_{lab_number}",
-					ReportWord:    "Informe",
-					CodeWord:      "Código Fuente",
-				},
-			},
-			Capture: ports.CaptureConfig{
-				Columns:     120,
-				FreezeFlags: []string{},
-				Prompt:      "❯ ",
-				Colors: map[string]string{
-					"prompt":  "32",
-					"command": "36",
-					"args":    "33",
-					"reset":   "0",
-				},
-			},
-		}
-		if err := s.Config.WriteConfig(destDir, defaultCfg); err != nil {
-			return fmt.Errorf("write default config: %w", err)
-		}
-		fmt.Fprintln(os.Stdout, "unsareport.json not found. Created default config in the target directory.")
-		fmt.Fprintln(os.Stdout, "Please validate the configuration and run the command again.")
-		return nil
+		return fmt.Errorf("no project found in %s. Run 'unsarep install' first", destDir)
 	}
 
 	if err := s.FS.Chdir(destDir); err != nil {
@@ -125,7 +91,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 			return fmt.Errorf("load local templates: %w", err)
 		}
 	} else {
-		remoteFiles, err = s.Fetcher.Fetch(ctx, opt.Repo, opt.Ref, template.Path)
+		remoteFiles, err = s.Fetcher.Fetch(ctx, ports.DefaultTemplateRepo, ports.DefaultRef, template.Path)
 		if err != nil {
 			return fmt.Errorf("fetch templates: %w", err)
 		}

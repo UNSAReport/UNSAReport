@@ -1,19 +1,16 @@
 package ports
 
-import "github.com/Masterminds/semver/v3"
-
-type TemplateVersion struct {
-	Version *semver.Version `json:"-"`
-	Path    string          `json:"path"`
-}
+const (
+	DefaultTemplateRepo  = "UNSAReport/templates"
+	DefaultComponentRepo = "UNSAReport/components"
+	DefaultRef           = "main"
+)
 
 type TemplateInfo struct {
 	Name        string
 	Description string
 	Version     string
 	Path        string
-	Repo        string
-	Ref         string
 	LocalPath   string
 }
 

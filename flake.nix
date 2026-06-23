@@ -31,12 +31,13 @@
           ];
       in
       {
-        packages.default = pkgs.buildGoModule {
+        packages.default = pkgs.buildGoModule rec {
           pname = "unsarep";
-          version = "0.0.1";          src = ./.;
+          version = "0.0.1";
+          src = ./.;
           subPackages = [ "cmd/unsarep" ];
 
-          vendorHash = "sha256-aFkV11P+AzgVWlxc0W1yody7Z7iAS2KCo3mK08Xl9cY=";
+          vendorHash = "sha256-/ctnLbz8NGaHYhRgrLXe6ZSTgxbiSpNikOcZPqRvHSk=";
 
           nativeBuildInputs = [
             pkgs.pkg-config
@@ -59,6 +60,7 @@
           ldflags = [
             "-s"
             "-w"
+            "-X" "github.com/UNSAReport/UNSAReport/internal/ports.Version=${version}"
           ];
 
           meta = with pkgs.lib; {

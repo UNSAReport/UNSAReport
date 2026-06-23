@@ -28,21 +28,18 @@ type MultiEntrySet struct {
 }
 
 type Manifest struct {
-	Version    string            `json:"version,omitempty"`
 	Mode       string            `json:"mode"`
 	Components map[string]string `json:"components,omitempty"`
 	Entries    interface{}       `json:"entries"`
 }
 
 type SingleManifest struct {
-	Version    string            `json:"version,omitempty"`
 	Mode       string            `json:"mode"`
 	Components map[string]string `json:"components,omitempty"`
 	Entries    []Entry           `json:"entries"`
 }
 
 type MultiManifest struct {
-	Version    string            `json:"version,omitempty"`
 	Mode       string            `json:"mode"`
 	Components map[string]string `json:"components,omitempty"`
 	Entries    MultiEntrySet     `json:"entries"`
@@ -123,7 +120,7 @@ func LoadAndValidateManifest(data []byte) (*Manifest, error) {
 		if err := sm.Validate(); err != nil {
 			return nil, fmt.Errorf("validate manifest: %w", err)
 		}
-		return &Manifest{Version: sm.Version, Mode: sm.Mode, Components: sm.Components, Entries: sm.Entries}, nil
+		return &Manifest{Mode: sm.Mode, Components: sm.Components, Entries: sm.Entries}, nil
 
 	case strings.Contains(string(data), `"mode": "multi"`):
 		var mm MultiManifest
@@ -133,7 +130,7 @@ func LoadAndValidateManifest(data []byte) (*Manifest, error) {
 		if err := mm.Validate(); err != nil {
 			return nil, fmt.Errorf("validate manifest: %w", err)
 		}
-		return &Manifest{Version: mm.Version, Mode: mm.Mode, Components: mm.Components, Entries: mm.Entries}, nil
+		return &Manifest{Mode: mm.Mode, Components: mm.Components, Entries: mm.Entries}, nil
 
 	default:
 		return nil, fmt.Errorf("manifest mode must be %q or %q", "single", "multi")

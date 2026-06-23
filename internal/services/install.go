@@ -14,8 +14,6 @@ import (
 type InstallOptions struct {
 	Dest     string
 	Session  string
-	Repo     string
-	Ref      string
 	Template string
 	Local    string
 }
@@ -90,29 +88,21 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 
 	name, rangeSpec := parseTemplateArg(opt.Template)
 
-	var template ports.TemplateInfo
-	if opt.Local != "" {
-		template, err = s.Registry.GetTemplateVersion(name, rangeSpec)
-		if err != nil {
-			return fmt.Errorf("get template: %w", err)
-		}
-	} else {
-		template, err = s.Registry.GetTemplateVersion(name, rangeSpec)
-		if err != nil {
-			return fmt.Errorf("get template: %w", err)
-		}
+	template, err := s.Registry.GetTemplateVersion(name, rangeSpec)
+	if err != nil {
+		return fmt.Errorf("get template: %w", err)
 	}
 
 	var files map[string][]byte
 	if opt.Local != "" {
-		localDir := filepath.Join(opt.Local, template.Name)
+		localDir := filepath.Join(opt.Local, template.Path)
 		files, err = s.Fetcher.LoadLocal(localDir)
 		if err != nil {
 			return fmt.Errorf("load local templates: %w", err)
 		}
 		cfg.LocalSource = opt.Local
 	} else {
-		files, err = s.Fetcher.Fetch(ctx, template.Repo, template.Ref, template.Path)
+		files, err = s.Fetcher.Fetch(ctx, ports.DefaultTemplateRepo, ports.DefaultRef, template.Path)
 		if err != nil {
 			return fmt.Errorf("fetch templates: %w", err)
 		}
