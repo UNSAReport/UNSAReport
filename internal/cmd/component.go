@@ -194,7 +194,13 @@ func checkTemplateCompatibility(ctx context.Context, fetcher ports.TemplateFetch
 		return
 	}
 
-	componentVersion, _, _, err := compReg.ResolveVersion(componentName, "latest")
+	componentEntry, exists := projectCfg.Components[componentName]
+	if !exists {
+		fmt.Fprintf(os.Stdout, "Warning: Component %s is required by the template but not installed\n", componentName)
+		return
+	}
+
+	componentVersion, err := semver.NewVersion(componentEntry.Version)
 	if err != nil {
 		return
 	}

@@ -134,6 +134,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	cfg.TemplateVersion = template.Version
 	cfg.Mode = m.Mode
 
+	var installedEntries []Entry
 	if m.Mode == "multi" {
 		if !hasConfig {
 			multiEntries, err := m.GetMultiEntries()
@@ -144,6 +145,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 			if err := s.applyEntriesInstall(files, destDir, rootEntries); err != nil {
 				return err
 			}
+			installedEntries = append(installedEntries, rootEntries...)
 		}
 
 		multiEntries, err := m.GetMultiEntries()
@@ -161,6 +163,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		if err := s.applyEntriesInstall(files, destDir, labEntriesExpanded); err != nil {
 			return err
 		}
+		installedEntries = append(installedEntries, labEntriesExpanded...)
 
 		sessionFound := slices.Contains(cfg.Sessions, lab)
 		if !sessionFound {
@@ -176,6 +179,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		if err := s.applyEntriesInstall(files, destDir, allEntries); err != nil {
 			return err
 		}
+		installedEntries = append(installedEntries, allEntries...)
 	}
 
 	if err := s.Config.WriteConfig(destDir, cfg); err != nil {
@@ -214,7 +218,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		fmt.Fprintf(os.Stdout, "Components installed: %d\n", len(results))
 	}
 
-	s.recordTemplateLockfile(destDir, cfg, m, files)
+	s.recordTemplateLockfile(destDir, cfg, installedEntries, files)
 
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
 	fmt.Fprintln(os.Stdout, "Installation complete!")
@@ -299,23 +303,25 @@ func parseTemplateArg(arg string) (name, rangeSpec string) {
 	return arg, "latest"
 }
 
-func (s *InstallService) recordTemplateLockfile(destDir string, cfg ports.UnsareportConfig, m *Manifest, remoteFiles map[string][]byte) {
-	entries := m.GetEntries()
-	if entries == nil {
+func (s *InstallService) recordTemplateLockfile(destDir string, cfg ports.UnsareportConfig, installedEntries []Entry, remoteFiles map[string][]byte) {
+	if len(installedEntries) == 0 {
 		return
 	}
 
-	templateFiles := make(map[string]ports.LockfileTemplateFile)
-	var allEntries []Entry
-	switch e := entries.(type) {
-	case []Entry:
-		allEntries = e
-	case MultiEntrySet:
-		allEntries = append(allEntries, e.Root...)
-		allEntries = append(allEntries, e.LabFiles...)
+	lf, err := s.Config.ReadLockfile(destDir)
+	if err != nil {
+		return
 	}
 
-	for _, entry := range allEntries {
+	var templateFiles map[string]ports.LockfileTemplateFile
+	if lf.Template != nil && lf.Template.Name == cfg.Template && lf.Template.Version == cfg.TemplateVersion {
+		templateFiles = lf.Template.Files
+	}
+	if templateFiles == nil {
+		templateFiles = make(map[string]ports.LockfileTemplateFile)
+	}
+
+	for _, entry := range installedEntries {
 		if entry.Kind != KindFile {
 			continue
 		}
@@ -337,11 +343,6 @@ func (s *InstallService) recordTemplateLockfile(destDir string, cfg ports.Unsare
 		templateFiles[entry.Dest] = ports.LockfileTemplateFile{
 			Integrity: config.ComputeIntegrity(localData),
 		}
-	}
-
-	lf, err := s.Config.ReadLockfile(destDir)
-	if err != nil {
-		return
 	}
 
 	lf.Template = &ports.LockfileTemplate{

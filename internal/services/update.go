@@ -96,6 +96,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 					return nil
 				}
 				fmt.Fprintf(os.Stdout, "Template update available: %s -> %s (current: %s)\n", cfg.Template, latest, current)
+				template = latestTemplate
 			}
 		}
 	}
@@ -107,7 +108,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 
 	var remoteFiles map[string][]byte
 	if localSource != "" {
-		remoteFiles, err = s.Fetcher.LoadLocal(localSource)
+		remoteFiles, err = s.Fetcher.LoadLocal(filepath.Join(localSource, template.Path))
 		if err != nil {
 			return fmt.Errorf("load local templates: %w", err)
 		}
@@ -395,7 +396,7 @@ func (s *UpdateService) recordTemplateLockfile(destDir string, cfg ports.Unsarep
 	s.Config.WriteLockfile(destDir, lf)
 }
 
-func (s *UpdateService) syncComponents(ctx context.Context, destDir string, manifestComponents map[string]string, cfg ports.UnsareportConfig) error {
+func (s *UpdateService) syncComponents(ctx context.Context, manifestComponents map[string]string, cfg ports.UnsareportConfig) error {
 	if len(manifestComponents) == 0 {
 		return nil
 	}
@@ -427,7 +428,7 @@ func (s *UpdateService) syncComponents(ctx context.Context, destDir string, mani
 			}
 
 			fmt.Fprintf(os.Stdout, "  Updating %s: %s -> %s (required: %s)\n", name, installedVersion, rangeSpec, rangeSpec)
-			if err := s.ComponentService.Update(ctx, name); err != nil {
+			if err := s.ComponentService.Add(ctx, name, rangeSpec, false); err != nil {
 				fmt.Fprintf(os.Stdout, "  Warning: failed to update %s: %v\n", name, err)
 			}
 		} else {

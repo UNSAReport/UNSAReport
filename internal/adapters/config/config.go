@@ -82,7 +82,10 @@ func (a *Adapter) WriteConfig(destDir string, cfg ports.UnsareportConfig) error 
 	path := filepath.Join(destDir, "unsareport.json")
 
 	parts := strings.SplitN(ports.Version, ".", 3)
-	majorMinor := parts[0] + "." + parts[1]
+	majorMinor := ports.Version
+	if len(parts) >= 2 {
+		majorMinor = parts[0] + "." + parts[1]
+	}
 	cfg.Schema = fmt.Sprintf("https://raw.githubusercontent.com/UNSAReport/UNSAReport/v%s/schemas/unsareport.schema.json", majorMinor)
 
 	b, err := json.MarshalIndent(cfg, "", "  ")

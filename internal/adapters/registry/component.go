@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/UNSAReport/UNSAReport/internal/ports"
@@ -59,7 +60,11 @@ func (a *ComponentRegistryAdapter) convertComponent(name string, entry registryC
 
 	versions := make(map[string]*ports.ComponentVersion)
 	for vStr, vEntry := range entry.Versions {
-		v, _ := semver.NewVersion(vStr)
+		v, err := semver.NewVersion(vStr)
+		if err != nil {
+			fmt.Fprintf(os.Stdout, "Warning: component %q has invalid version %q: %v\n", name, vStr, err)
+			continue
+		}
 		versions[vStr] = &ports.ComponentVersion{
 			Version:      v,
 			Path:         vEntry.Path,

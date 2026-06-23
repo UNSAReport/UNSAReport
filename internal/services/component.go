@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -106,6 +107,11 @@ func (s *ComponentService) addResolved(ctx context.Context, name string, force b
 	}
 	if !ok {
 		return fmt.Errorf("unsareport.json not found. Are you in a project directory?")
+	}
+
+	var componentNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	if !componentNameRegex.MatchString(name) {
+		return fmt.Errorf("invalid component name %q: must contain only alphanumeric characters, underscores, or dashes", name)
 	}
 
 	localPath := filepath.Join(projectRoot, "components", name+".typ")
