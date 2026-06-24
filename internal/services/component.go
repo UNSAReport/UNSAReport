@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -135,13 +136,17 @@ func (s *ComponentService) addResolved(ctx context.Context, name string, force b
 		if existingPkg, exists := lf.Packages[lockKey]; exists {
 			localHash := config.ComputeIntegrity(localData)
 			if localHash != existingPkg.Integrity {
-				fmt.Fprintf(s.Stdout, "Warning: Local modifications detected in %s. Overwrite? (y/N): ", name+".typ")
+				if _, err := fmt.Fprintf(s.Stdout, "Warning: Local modifications detected in %s. Overwrite? (y/N): ", name+".typ"); err != nil {
+					return fmt.Errorf("write prompt: %w", err)
+				}
 				var answer string
 				if _, err := fmt.Scanln(&answer); err != nil {
 					return fmt.Errorf("read input: %w", err)
 				}
 				if strings.ToLower(strings.TrimSpace(answer)) != "y" {
-					fmt.Fprintf(s.Stdout, "Skipped: %s\n", name)
+					if _, err := fmt.Fprintf(s.Stdout, "Skipped: %s\n", name); err != nil {
+						return fmt.Errorf("write skipped: %w", err)
+					}
 					return nil
 				}
 			}
@@ -273,15 +278,21 @@ func (s *ComponentService) List(ctx context.Context) error {
 		}
 	}
 
-	fmt.Fprintf(s.Stdout, "%-20s %-10s %-40s\n", "NAME", "INSTALLED", "DESCRIPTION")
-	fmt.Fprintln(s.Stdout, strings.Repeat("-", 70))
+	if _, err := fmt.Fprintf(s.Stdout, "%-20s %-10s %-40s\n", "NAME", "INSTALLED", "DESCRIPTION"); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+	if _, err := fmt.Fprintln(s.Stdout, strings.Repeat("-", 70)); err != nil {
+		return fmt.Errorf("write separator: %w", err)
+	}
 
 	for _, c := range components {
 		status := "no"
 		if v, ok := installed[c.Name]; ok {
 			status = v
 		}
-		fmt.Fprintf(s.Stdout, "%-20s %-10s %-40s\n", c.Name, status, c.Description)
+		if _, err := fmt.Fprintf(s.Stdout, "%-20s %-10s %-40s\n", c.Name, status, c.Description); err != nil {
+			return fmt.Errorf("write component: %w", err)
+		}
 	}
 
 	return nil
@@ -306,13 +317,15 @@ func (s *ComponentService) Update(ctx context.Context, name string) error {
 	}
 
 	if cfg.Components == nil {
-		fmt.Fprintln(s.Stdout, "No components installed.")
+		if _, err := fmt.Fprintln(s.Stdout, "No components installed."); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 		return nil
 	}
 
 	for compName := range cfg.Components {
 		if err := s.updateSingle(ctx, projectRoot, cfg, compName); err != nil {
-			fmt.Fprintf(s.Stderr, "Warning: failed to update %s: %v\n", compName, err)
+			slog.Warn("failed to update component", "component", compName, "error", err)
 		}
 	}
 
@@ -331,11 +344,15 @@ func (s *ComponentService) updateSingle(ctx context.Context, projectRoot string,
 	}
 
 	if entry.Version == latestVersion.String() {
-		fmt.Fprintf(s.Stdout, "%s: already up to date (%s)\n", name, entry.Version)
+		if _, err := fmt.Fprintf(s.Stdout, "%s: already up to date (%s)\n", name, entry.Version); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 		return nil
 	}
 
-	fmt.Fprintf(s.Stdout, "%s: updating %s -> %s\n", name, entry.Version, latestVersion.String())
+	if _, err := fmt.Fprintf(s.Stdout, "%s: updating %s -> %s\n", name, entry.Version, latestVersion.String()); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 
 	if err := s.Add(ctx, name, "latest", true); err != nil {
 		return fmt.Errorf("update component: %w", err)

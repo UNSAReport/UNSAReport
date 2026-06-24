@@ -62,7 +62,7 @@ func (a *ComponentRegistryAdapter) convertComponent(name string, entry registryC
 	for vStr, vEntry := range entry.Versions {
 		v, err := semver.NewVersion(vStr)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: component %q has invalid version %q: %v\n", name, vStr, err) //nolint:errcheck // diagnostic output
+			fmt.Fprintf(os.Stderr, "Warning: component %q has invalid version %q: %v\n", name, vStr, err)
 			continue
 		}
 		versions[vStr] = &ports.ComponentVersion{

@@ -81,7 +81,9 @@ func newComponentAddCmd() *cobra.Command {
 
 			checkTemplateCompatibility(cmd.Context(), fetcher, cfg, name)
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Added: %s\n", name)
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Added: %s\n", name); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 			return nil
 		},
 	}
@@ -108,7 +110,9 @@ func newComponentRemoveCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Removed: %s\n", args[0])
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Removed: %s\n", args[0]); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 			return nil
 		},
 	}

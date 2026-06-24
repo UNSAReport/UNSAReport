@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -96,11 +97,17 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		if cErr == nil && lErr == nil {
 			if latest.GreaterThan(current) {
 				if latest.Major() > current.Major() {
-					fmt.Fprintf(s.Stdout, "Major version update available: %s -> %s\n", current, latest)
-					fmt.Fprintf(s.Stdout, "Run 'unsarep install %s@%s' to upgrade to the new major version.\n", cfg.Template, latest)
+					if _, err := fmt.Fprintf(s.Stdout, "Major version update available: %s -> %s\n", current, latest); err != nil {
+						return fmt.Errorf("write message: %w", err)
+					}
+					if _, err := fmt.Fprintf(s.Stdout, "Run 'unsarep install %s@%s' to upgrade to the new major version.\n", cfg.Template, latest); err != nil {
+						return fmt.Errorf("write message: %w", err)
+					}
 					return nil
 				}
-				fmt.Fprintf(s.Stdout, "Template update available: %s -> %s (current: %s)\n", cfg.Template, latest, current)
+				if _, err := fmt.Fprintf(s.Stdout, "Template update available: %s -> %s (current: %s)\n", cfg.Template, latest, current); err != nil {
+					return fmt.Errorf("write message: %w", err)
+				}
 				template = latestTemplate
 			}
 		}
@@ -133,10 +140,14 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		return fmt.Errorf("load manifest: %w", err)
 	}
 
-	fmt.Fprintf(s.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti])
+	if _, err := fmt.Fprintf(s.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti]); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 
 	if isMulti && opt.Session == "" && len(cfg.Sessions) > 1 {
-		fmt.Fprintf(s.Stdout, "This will update all registered sessions: %s\n", strings.Join(cfg.Sessions, ", "))
+		if _, err := fmt.Fprintf(s.Stdout, "This will update all registered sessions: %s\n", strings.Join(cfg.Sessions, ", ")); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 		var confirmed bool
 		form := huh.NewForm(huh.NewGroup(
 			huh.NewConfirm().
@@ -147,12 +158,16 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 			return fmt.Errorf("prompt decision: %w", err)
 		}
 		if !confirmed {
-			fmt.Fprintln(s.Stdout, "Update cancelled.")
+			if _, err := fmt.Fprintln(s.Stdout, "Update cancelled."); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 			return nil
 		}
 	}
 
-	fmt.Fprintf(s.Stdout, "Checking for updates in: %s\n\n", destDir)
+	if _, err := fmt.Fprintf(s.Stdout, "Checking for updates in: %s\n\n", destDir); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 
 	entries := s.buildUpdateEntries(m, isMulti, cfg, opt.Session)
 	entries = ExpandDirEntries(remoteFiles, entries)
@@ -167,7 +182,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	if len(updatableEntries) > 0 {
 		rb := NewRollbackService(s.FS, s.Config, s.Stdout, s.Stderr)
 		if err := rb.CreateBackup(destDir, updatableEntries, cfg); err != nil {
-			fmt.Fprintf(s.Stderr, "Warning: could not create backup: %v\n", err)
+			slog.Warn("could not create backup", "error", err)
 		}
 	}
 
@@ -216,12 +231,16 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 				if err := apply(); err != nil {
 					return err
 				}
-				fmt.Fprintf(s.Stdout, "✓ Updated [FORCED]: %s\n", label)
+				if _, err := fmt.Fprintf(s.Stdout, "✓ Updated [FORCED]: %s\n", label); err != nil {
+					return fmt.Errorf("write message: %w", err)
+				}
 				continue
 			}
 
 			if isNew {
-				fmt.Fprintf(s.Stdout, "\n[NEW FILE] %s\n", label)
+				if _, err := fmt.Fprintf(s.Stdout, "\n[NEW FILE] %s\n", label); err != nil {
+					return fmt.Errorf("write message: %w", err)
+				}
 			} else {
 				s.showDiff(label, string(local), string(remote), dstPath, srcPath)
 			}
@@ -238,11 +257,17 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 				if err := apply(); err != nil {
 					return err
 				}
-				fmt.Fprintf(s.Stdout, "✓ Updated: %s\n", label)
+				if _, err := fmt.Fprintf(s.Stdout, "✓ Updated: %s\n", label); err != nil {
+					return fmt.Errorf("write message: %w", err)
+				}
 			case decNo:
-				fmt.Fprintf(s.Stdout, "Skipped: %s\n", label)
+				if _, err := fmt.Fprintf(s.Stdout, "Skipped: %s\n", label); err != nil {
+					return fmt.Errorf("write message: %w", err)
+				}
 			case decQuit:
-				fmt.Fprintln(s.Stdout, "\nStopping update process.")
+				if _, err := fmt.Fprintln(s.Stdout, "\nStopping update process."); err != nil {
+					return fmt.Errorf("write message: %w", err)
+				}
 				return nil
 			}
 		default:
@@ -250,11 +275,13 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		}
 	}
 
-	fmt.Fprintf(s.Stdout, "\nUpdate finished. %d files updated.\n", applied)
+	if _, err := fmt.Fprintf(s.Stdout, "\nUpdate finished. %d files updated.\n", applied); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 
 	if s.ComponentService != nil {
 		if err := s.syncComponents(ctx, m.GetComponents(), cfg); err != nil {
-			fmt.Fprintf(s.Stderr, "Warning: component sync failed: %v\n", err)
+			slog.Warn("component sync failed", "error", err)
 		}
 	}
 
@@ -330,17 +357,38 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, cfg ports.
 }
 
 func (s *UpdateService) showDiff(fileName, oldText, newText, oldPath, newSrc string) {
-	fmt.Fprintf(s.Stdout, "\n--- Diff for %s ---\n", fileName)
+	if _, err := fmt.Fprintf(s.Stdout, "\n--- Diff for %s ---\n", fileName); err != nil {
+		slog.Warn("write diff header", "error", err)
+		return
+	}
 	if imageExt.MatchString(fileName) {
-		fmt.Fprintln(s.Stdout, "  [Binary image file changed. Cannot display inline diff.]")
-		fmt.Fprintf(s.Stdout, "  - Local version at: %s\n", oldPath)
-		fmt.Fprintf(s.Stdout, "  + New template at: %s\n", newSrc)
-		fmt.Fprintln(s.Stdout, strings.Repeat("-", 30)+"\n")
+		if _, err := fmt.Fprintln(s.Stdout, "  [Binary image file changed. Cannot display inline diff.]"); err != nil {
+			slog.Warn("write message", "error", err)
+			return
+		}
+		if _, err := fmt.Fprintf(s.Stdout, "  - Local version at: %s\n", oldPath); err != nil {
+			slog.Warn("write message", "error", err)
+			return
+		}
+		if _, err := fmt.Fprintf(s.Stdout, "  + New template at: %s\n", newSrc); err != nil {
+			slog.Warn("write message", "error", err)
+			return
+		}
+		if _, err := fmt.Fprintln(s.Stdout, strings.Repeat("-", 30)+"\n"); err != nil {
+			slog.Warn("write separator", "error", err)
+			return
+		}
 		return
 	}
 
-	fmt.Fprint(s.Stdout, UnifiedLineDiff(oldText, newText))
-	fmt.Fprintln(s.Stdout, strings.Repeat("-", 30)+"\n")
+	if _, err := fmt.Fprint(s.Stdout, UnifiedLineDiff(oldText, newText)); err != nil {
+		slog.Warn("write diff", "error", err)
+		return
+	}
+	if _, err := fmt.Fprintln(s.Stdout, strings.Repeat("-", 30)+"\n"); err != nil {
+		slog.Warn("write separator", "error", err)
+		return
+	}
 }
 
 func (s *UpdateService) promptUpdateDecision(label string) (updateDecision, error) {
@@ -399,7 +447,7 @@ func (s *UpdateService) recordTemplateLockfile(destDir string, cfg ports.Unsarep
 	}
 
 	if err := s.Config.WriteLockfile(destDir, lf); err != nil {
-		fmt.Fprintf(s.Stderr, "Warning: failed to write lockfile: %v\n", err)
+		slog.Warn("failed to write lockfile", "error", err)
 	}
 }
 
@@ -408,8 +456,12 @@ func (s *UpdateService) syncComponents(ctx context.Context, manifestComponents m
 		return nil
 	}
 
-	fmt.Fprintf(s.Stdout, "\nSyncing components...\n")
-	fmt.Fprintln(s.Stdout, strings.Repeat("-", 50))
+	if _, err := fmt.Fprintf(s.Stdout, "\nSyncing components...\n"); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
+	if _, err := fmt.Fprintln(s.Stdout, strings.Repeat("-", 50)); err != nil {
+		return fmt.Errorf("write separator: %w", err)
+	}
 
 	installed := make(map[string]string)
 	if cfg.Components != nil {
@@ -434,24 +486,32 @@ func (s *UpdateService) syncComponents(ctx context.Context, manifestComponents m
 				continue
 			}
 
-			fmt.Fprintf(s.Stdout, "  Updating %s: %s -> %s\n", name, installedVersion, rangeSpec)
+			if _, err := fmt.Fprintf(s.Stdout, "  Updating %s: %s -> %s\n", name, installedVersion, rangeSpec); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 			if err := s.ComponentService.Add(ctx, name, rangeSpec, false); err != nil {
-				fmt.Fprintf(s.Stderr, "  Warning: failed to update %s: %v\n", name, err)
+				slog.Warn("failed to update component", "component", name, "error", err)
 			}
 		} else {
-			fmt.Fprintf(s.Stdout, "  Installing %s (%s)\n", name, rangeSpec)
+			if _, err := fmt.Fprintf(s.Stdout, "  Installing %s (%s)\n", name, rangeSpec); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 			if err := s.ComponentService.Add(ctx, name, rangeSpec, false); err != nil {
-				fmt.Fprintf(s.Stderr, "  Warning: failed to install %s: %v\n", name, err)
+				slog.Warn("failed to install component", "component", name, "error", err)
 			}
 		}
 	}
 
 	for name := range installed {
 		if _, required := manifestComponents[name]; !required {
-			fmt.Fprintf(s.Stdout, "  Note: Component %s is installed but not required by the template\n", name)
+			if _, err := fmt.Fprintf(s.Stdout, "  Note: Component %s is installed but not required by the template\n", name); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 		}
 	}
 
-	fmt.Fprintln(s.Stdout, strings.Repeat("-", 50))
+	if _, err := fmt.Fprintln(s.Stdout, strings.Repeat("-", 50)); err != nil {
+		return fmt.Errorf("write separator: %w", err)
+	}
 	return nil
 }

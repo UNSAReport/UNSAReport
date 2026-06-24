@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"time"
@@ -93,7 +94,9 @@ func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error
 	}
 
 	for _, instr := range instructions {
-		fmt.Fprintf(s.Stdout, "Capturing instruction: %s\n", instr)
+		if _, err := fmt.Fprintf(s.Stdout, "Capturing instruction: %s\n", instr); err != nil {
+			return fmt.Errorf("write instruction: %w", err)
+		}
 		if after, ok := strings.CutPrefix(instr, "w:"); ok {
 			d, err := time.ParseDuration(after)
 			if err != nil {
@@ -148,7 +151,7 @@ func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error
 		timestamp := time.Now().Format("02-01-2006_15-04-05")
 		logPath := filepath.Join("capture_logs", timestamp+".log")
 		if err := s.FS.WriteFileAtomic(logPath, []byte(output), 0644); err != nil {
-			fmt.Fprintf(s.Stderr, "Warning: failed to write capture log: %v\n", err)
+			slog.Warn("failed to write capture log", "path", logPath, "error", err)
 		}
 	}
 

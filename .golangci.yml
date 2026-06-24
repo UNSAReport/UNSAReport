@@ -6,14 +6,7 @@ linters:
     - revive
     - misspell
   settings:
-    errcheck:
-      exclude-functions:
-        - fmt.Fprintf
-        - fmt.Fprintln
-        - fmt.Printf
-        - fmt.Println
-        - fmt.Fprint
-        - fmt.Print
+
     revive:
       rules:
         - name: exported

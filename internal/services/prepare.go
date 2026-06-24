@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -97,7 +98,9 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 
 	generatedReportName := ApplyTemplate(pctx.cfg.Prepare.Output.FileTemplate, vars, reportWord)
 
-	fmt.Fprintln(s.Stdout, "Compiling typst report...")
+	if _, err := fmt.Fprintln(s.Stdout, "Compiling typst report..."); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 	inputs := map[string]string{"title": generatedReportName}
 	if pctx.isMulti {
 		inputs["unsarep-root"] = "/" + pctx.labDir + "/"
@@ -125,10 +128,12 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 
 	zipPath := filepath.Join(submissionDir, codeFile)
 	if err := s.FS.Remove(zipPath); err != nil && !os.IsNotExist(err) {
-		fmt.Fprintf(s.Stderr, "Warning: could not remove old zip: %v\n", err)
+		slog.Warn("could not remove old zip", "path", zipPath, "error", err)
 	}
 
-	fmt.Fprintf(s.Stdout, "Archiving %s to %s...\n", srcDir, zipPath)
+	if _, err := fmt.Fprintf(s.Stdout, "Archiving %s to %s...\n", srcDir, zipPath); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 	files, err := s.listGitFiles(ctx, srcDir)
 	if err != nil {
 		return fmt.Errorf("list git files: %w", err)
@@ -141,15 +146,19 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 	} else {
 		if err := s.Archiver.ArchiveDir(zipPath, srcDir); err != nil {
 			if errors.Is(err, zipper.ErrSourceMissing) {
-				fmt.Fprintf(s.Stderr, "Warning: %s directory not found. Skipping zip generation.\n", srcDir)
+				slog.Warn("source directory not found, skipping zip generation", "dir", srcDir)
 			} else {
 				return fmt.Errorf("archive dir: %w", err)
 			}
 		}
 	}
 
-	fmt.Fprintf(s.Stdout, "\nReport: %s\n", filepath.Join(submissionDir, reportFile))
-	fmt.Fprintf(s.Stdout, "Code:  %s\n", filepath.Join(submissionDir, codeFile))
+	if _, err := fmt.Fprintf(s.Stdout, "\nReport: %s\n", filepath.Join(submissionDir, reportFile)); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
+	if _, err := fmt.Fprintf(s.Stdout, "Code:  %s\n", filepath.Join(submissionDir, codeFile)); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 	return nil
 }
 
@@ -251,8 +260,12 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 	}
 
 	for {
-		fmt.Fprintln(s.Stdout, "\nVariable configuration for report naming:")
-		fmt.Fprintln(s.Stdout, "Available variables:")
+		if _, err := fmt.Fprintln(s.Stdout, "\nVariable configuration for report naming:"); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
+		if _, err := fmt.Fprintln(s.Stdout, "Available variables:"); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 
 		keys := make([]string, 0, len(vars))
 		for k := range vars {
@@ -264,9 +277,13 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 			if k == "output_type" {
 				desc = "Deliverable type (e.g., Informe or Código Fuente)"
 			}
-			fmt.Fprintf(s.Stdout, "  {%s}: %s\n", k, desc)
+			if _, err := fmt.Fprintf(s.Stdout, "  {%s}: %s\n", k, desc); err != nil {
+				return fmt.Errorf("write variable: %w", err)
+			}
 		}
-		fmt.Fprintln(s.Stdout, "\nExample: {output_type}_{lab_number}_{members_abbr_list}")
+		if _, err := fmt.Fprintln(s.Stdout, "\nExample: {output_type}_{lab_number}_{members_abbr_list}"); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 
 		form := huh.NewForm(huh.NewGroup(
 			huh.NewInput().
@@ -329,7 +346,9 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 			if err := s.Config.WriteConfig(pctx.projectRoot, pctx.cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(s.Stdout, "Configuration saved to unsareport.json\n")
+			if _, err := fmt.Fprintf(s.Stdout, "Configuration saved to unsareport.json\n"); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 			break
 		}
 	}

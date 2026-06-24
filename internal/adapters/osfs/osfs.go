@@ -3,8 +3,11 @@ package osfs
 import (
 	"crypto/sha256"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/samber/oops"
 )
 
 type Adapter struct{}
@@ -23,32 +26,45 @@ func (a *Adapter) FileExists(path string) bool {
 }
 
 func (a *Adapter) ReadFile(path string) ([]byte, error) {
-	return os.ReadFile(path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, oops.With("path", path).Wrapf(err, "read file")
+	}
+	return data, nil
 }
 
 func (a *Adapter) WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := a.EnsureDir(dir); err != nil {
-		return err
+		return oops.With("path", path).Wrapf(err, "ensure dir")
 	}
 	tmp, err := os.CreateTemp(dir, ".tmp-unsarep-*")
 	if err != nil {
-		return err
+		return oops.With("path", path).Wrapf(err, "create temp file")
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName) //nolint:errcheck // best-effort cleanup
+	defer func() {
+		if err := os.Remove(tmpName); err != nil {
+			slog.Warn("failed to remove temp file", "path", tmpName, "error", err)
+		}
+	}()
 
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close() //nolint:errcheck // best-effort cleanup
-		return err
+		if err := tmp.Close(); err != nil {
+			slog.Warn("failed to close temp file", "path", tmpName, "error", err)
+		}
+		return oops.With("path", path).Wrapf(err, "write temp file")
 	}
 	if err := tmp.Close(); err != nil {
-		return err
+		return oops.With("path", path).Wrapf(err, "close temp file")
 	}
 	if err := os.Chmod(tmpName, perm); err != nil {
-		return err
+		return oops.With("path", path).Wrapf(err, "chmod temp file")
 	}
-	return os.Rename(tmpName, path)
+	if err := os.Rename(tmpName, path); err != nil {
+		return oops.With("path", path).Wrapf(err, "rename temp file")
+	}
+	return nil
 }
 
 func (a *Adapter) CopyFile(src string, dst string, perm os.FileMode) error {
@@ -59,12 +75,20 @@ func (a *Adapter) CopyFile(src string, dst string, perm os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close() //nolint:errcheck // file close
+	defer func() {
+		if err := in.Close(); err != nil {
+			slog.Warn("failed to close source file", "path", src, "error", err)
+		}
+	}()
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm)
 	if err != nil {
 		return err
 	}
-	defer out.Close() //nolint:errcheck // file close
+	defer func() {
+		if err := out.Close(); err != nil {
+			slog.Warn("failed to close destination file", "path", dst, "error", err)
+		}
+	}()
 	if _, err := io.Copy(out, in); err != nil {
 		return err
 	}
