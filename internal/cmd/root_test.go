@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"bytes"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRootCmd_Help(t *testing.T) {
@@ -15,14 +17,8 @@ func TestRootCmd_Help(t *testing.T) {
 	cmd.SetArgs([]string{"--help"})
 
 	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "UNSAReport template CLI") {
-		t.Errorf("expected help output to contain description, got: %s", output)
-	}
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "UNSAReport template CLI")
 }
 
 func TestRootCmd_NoArgs_ShowsHelp(t *testing.T) {
@@ -34,14 +30,8 @@ func TestRootCmd_NoArgs_ShowsHelp(t *testing.T) {
 	cmd.SetArgs([]string{})
 
 	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "UNSAReport template CLI") {
-		t.Errorf("expected help output, got: %s", output)
-	}
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "UNSAReport template CLI")
 }
 
 func TestCompletionCmd(t *testing.T) {
@@ -57,14 +47,20 @@ func TestCompletionCmd(t *testing.T) {
 			cmd.SetArgs([]string{"completion", shell})
 
 			err := cmd.Execute()
-			if err != nil {
-				t.Fatalf("Execute() error = %v", err)
-			}
-
-			output := buf.String()
-			if len(output) == 0 {
-				t.Errorf("expected non-empty completion output for %s", shell)
-			}
+			require.NoError(t, err)
+			assert.NotEmpty(t, buf.String(), "completion output should not be empty for %s", shell)
 		})
 	}
+}
+
+func TestRootCmd_UnknownFlag(t *testing.T) {
+	ensureCLI()
+	cmd := rootCmd
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"--nonexistent"})
+
+	err := cmd.Execute()
+	require.Error(t, err)
 }

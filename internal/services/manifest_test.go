@@ -2,9 +2,14 @@ package services
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadAndValidateManifest_Single(t *testing.T) {
+	t.Parallel()
+
 	data := []byte(`{
 		"mode": "single",
 		"entries": [
@@ -13,29 +18,18 @@ func TestLoadAndValidateManifest_Single(t *testing.T) {
 	}`)
 
 	m, err := LoadAndValidateManifest(data)
-	if err != nil {
-		t.Fatalf("LoadAndValidateManifest() error = %v", err)
-	}
-
-	if m.Mode != "single" {
-		t.Errorf("Mode = %q, want %q", m.Mode, "single")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "single", m.Mode)
 
 	entries, err := m.GetSingleEntries()
-	if err != nil {
-		t.Fatalf("GetSingleEntries() error = %v", err)
-	}
-
-	if len(entries) != 1 {
-		t.Fatalf("len(entries) = %d, want 1", len(entries))
-	}
-
-	if entries[0].Dest != "report.typ" {
-		t.Errorf("entries[0].Dest = %q, want %q", entries[0].Dest, "report.typ")
-	}
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, "report.typ", entries[0].Dest)
 }
 
 func TestLoadAndValidateManifest_Multi(t *testing.T) {
+	t.Parallel()
+
 	data := []byte(`{
 		"mode": "multi",
 		"entries": {
@@ -49,45 +43,34 @@ func TestLoadAndValidateManifest_Multi(t *testing.T) {
 	}`)
 
 	m, err := LoadAndValidateManifest(data)
-	if err != nil {
-		t.Fatalf("LoadAndValidateManifest() error = %v", err)
-	}
-
-	if m.Mode != "multi" {
-		t.Errorf("Mode = %q, want %q", m.Mode, "multi")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "multi", m.Mode)
 
 	entries, err := m.GetMultiEntries()
-	if err != nil {
-		t.Fatalf("GetMultiEntries() error = %v", err)
-	}
-
-	if len(entries.Root) != 1 {
-		t.Fatalf("len(root) = %d, want 1", len(entries.Root))
-	}
-
-	if len(entries.LabFiles) != 1 {
-		t.Fatalf("len(labFiles) = %d, want 1", len(entries.LabFiles))
-	}
+	require.NoError(t, err)
+	require.Len(t, entries.Root, 1)
+	require.Len(t, entries.LabFiles, 1)
 }
 
 func TestLoadAndValidateManifest_InvalidMode(t *testing.T) {
+	t.Parallel()
+
 	data := []byte(`{"mode": "invalid"}`)
 	_, err := LoadAndValidateManifest(data)
-	if err == nil {
-		t.Fatal("expected error for invalid mode")
-	}
+	require.Error(t, err)
 }
 
 func TestLoadAndValidateManifest_EmptyEntries(t *testing.T) {
+	t.Parallel()
+
 	data := []byte(`{"mode": "single", "entries": []}`)
 	_, err := LoadAndValidateManifest(data)
-	if err == nil {
-		t.Fatal("expected error for empty entries")
-	}
+	require.Error(t, err)
 }
 
-func TestExpandDirEntries(t *testing.T) {
+func TestExpandDirEntries_Manifest(t *testing.T) {
+	t.Parallel()
+
 	remote := map[string][]byte{
 		"common/style.typ":     []byte("style"),
 		"common/utils.typ":     []byte("utils"),
@@ -100,18 +83,13 @@ func TestExpandDirEntries(t *testing.T) {
 
 	expanded := ExpandDirEntries(remote, entries)
 
-	// 1 dir entry + 3 expanded file entries = 4 total
-	if len(expanded) != 4 {
-		t.Fatalf("len(expanded) = %d, want 4", len(expanded))
-	}
-
-	// First entry is the original dir
-	if expanded[0].Kind != KindDir {
-		t.Errorf("expanded[0].Kind = %q, want %q", expanded[0].Kind, KindDir)
-	}
+	require.Len(t, expanded, 4)
+	assert.Equal(t, KindDir, expanded[0].Kind)
 }
 
-func TestSubstituteLab(t *testing.T) {
+func TestSubstituteLab_Manifest(t *testing.T) {
+	t.Parallel()
+
 	entries := []Entry{
 		{Kind: KindFile, Src: "report.typ", Dest: "{lab}/report.typ"},
 		{Kind: KindFile, Src: "main.typ", Dest: "{lab}/main.typ"},
@@ -119,36 +97,214 @@ func TestSubstituteLab(t *testing.T) {
 
 	result := substituteLab(entries, "l1")
 
-	if len(result) != 2 {
-		t.Fatalf("len(result) = %d, want 2", len(result))
-	}
-
-	if result[0].Dest != "l1/report.typ" {
-		t.Errorf("result[0].Dest = %q, want %q", result[0].Dest, "l1/report.typ")
-	}
-
-	if result[1].Dest != "l1/main.typ" {
-		t.Errorf("result[1].Dest = %q, want %q", result[1].Dest, "l1/main.typ")
-	}
+	require.Len(t, result, 2)
+	assert.Equal(t, "l1/report.typ", result[0].Dest)
+	assert.Equal(t, "l1/main.typ", result[1].Dest)
 }
 
 func TestGetComponents(t *testing.T) {
+	t.Parallel()
+
 	t.Run("nil components", func(t *testing.T) {
+		t.Parallel()
 		m := &Manifest{Mode: "single"}
 		components := m.GetComponents()
-		if len(components) != 0 {
-			t.Errorf("expected empty map, got %v", components)
-		}
+		assert.Empty(t, components)
 	})
 
 	t.Run("with components", func(t *testing.T) {
+		t.Parallel()
 		m := &Manifest{
 			Mode:       "single",
 			Components: map[string]string{"code-block": "^1.0.0"},
 		}
 		components := m.GetComponents()
-		if components["code-block"] != "^1.0.0" {
-			t.Errorf("expected ^1.0.0, got %s", components["code-block"])
-		}
+		assert.Equal(t, "^1.0.0", components["code-block"])
 	})
+
+	t.Run("nil components map", func(t *testing.T) {
+		t.Parallel()
+		m := &Manifest{Mode: "single", Components: nil}
+		c := m.GetComponents()
+		assert.Empty(t, c)
+	})
+}
+
+func TestLoadManifest(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid single", func(t *testing.T) {
+		t.Parallel()
+		data := []byte(`{"mode": "single", "entries": [{"kind": "file", "src": "a", "dest": "b"}]}`)
+		m, err := LoadManifest(data)
+		require.NoError(t, err)
+		assert.Equal(t, "single", m.Mode)
+	})
+
+	t.Run("valid multi", func(t *testing.T) {
+		t.Parallel()
+		data := []byte(`{"mode": "multi", "entries": {"root": [], "labFiles": []}}`)
+		m, err := LoadManifest(data)
+		require.NoError(t, err)
+		assert.Equal(t, "multi", m.Mode)
+	})
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		t.Parallel()
+		data := []byte(`{invalid json}`)
+		_, err := LoadManifest(data)
+		require.Error(t, err)
+	})
+
+	t.Run("unknown mode", func(t *testing.T) {
+		t.Parallel()
+		data := []byte(`{"mode": "triple"}`)
+		_, err := LoadManifest(data)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be")
+	})
+}
+
+func TestSingleManifest_Validate(t *testing.T) {
+	t.Parallel()
+
+	t.Run("wrong mode", func(t *testing.T) {
+		t.Parallel()
+		m := &SingleManifest{Mode: "multi", Entries: []Entry{{Kind: KindFile, Src: "a", Dest: "b"}}}
+		err := m.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be")
+	})
+
+	t.Run("empty entries", func(t *testing.T) {
+		t.Parallel()
+		m := &SingleManifest{Mode: "single", Entries: []Entry{}}
+		err := m.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must not be empty")
+	})
+
+	t.Run("file entry without src", func(t *testing.T) {
+		t.Parallel()
+		m := &SingleManifest{Mode: "single", Entries: []Entry{{Kind: KindFile, Dest: "b"}}}
+		err := m.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "src must not be empty")
+	})
+
+	t.Run("dir entry without dest", func(t *testing.T) {
+		t.Parallel()
+		m := &SingleManifest{Mode: "single", Entries: []Entry{{Kind: KindDir, Src: "a"}}}
+		err := m.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "dest must not be empty")
+	})
+
+	t.Run("invalid entry kind", func(t *testing.T) {
+		t.Parallel()
+		m := &SingleManifest{Mode: "single", Entries: []Entry{{Kind: "invalid", Src: "a", Dest: "b"}}}
+		err := m.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid entry kind")
+	})
+}
+
+func TestMultiManifest_Validate(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty root", func(t *testing.T) {
+		t.Parallel()
+		m := &MultiManifest{Mode: "multi", Entries: MultiEntrySet{
+			Root:     []Entry{},
+			LabFiles: []Entry{{Kind: KindFile, Src: "a", Dest: "b"}},
+		}}
+		err := m.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "root entries must not be empty")
+	})
+
+	t.Run("empty labFiles", func(t *testing.T) {
+		t.Parallel()
+		m := &MultiManifest{Mode: "multi", Entries: MultiEntrySet{
+			Root:     []Entry{{Kind: KindDir, Dest: "common"}},
+			LabFiles: []Entry{},
+		}}
+		err := m.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "labFiles entries must not be empty")
+	})
+
+	t.Run("valid", func(t *testing.T) {
+		t.Parallel()
+		m := &MultiManifest{Mode: "multi", Entries: MultiEntrySet{
+			Root:     []Entry{{Kind: KindDir, Dest: "common"}},
+			LabFiles: []Entry{{Kind: KindFile, Src: "a", Dest: "{lab}/a"}},
+		}}
+		err := m.Validate()
+		require.NoError(t, err)
+	})
+}
+
+func TestManifest_GetSingleEntries_WrongMode(t *testing.T) {
+	t.Parallel()
+	m := &Manifest{Mode: "multi"}
+	_, err := m.GetSingleEntries()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not single-mode")
+}
+
+func TestManifest_GetMultiEntries_WrongMode(t *testing.T) {
+	t.Parallel()
+	m := &Manifest{Mode: "single"}
+	_, err := m.GetMultiEntries()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not multi-mode")
+}
+
+func TestExpandDirEntries_NestedDirs(t *testing.T) {
+	t.Parallel()
+
+	remote := map[string][]byte{
+		"images/photos/cat.jpg": []byte("cat"),
+		"images/photos/dog.jpg": []byte("dog"),
+		"images/icons/logo.png": []byte("logo"),
+		"images/README.md":      []byte("readme"),
+	}
+
+	entries := []Entry{
+		{Kind: KindDir, Src: "images", Dest: "output/images"},
+	}
+
+	expanded := ExpandDirEntries(remote, entries)
+
+	require.Equal(t, 5, len(expanded))
+	assert.Equal(t, KindDir, expanded[0].Kind)
+
+	dests := make(map[string]bool)
+	for _, e := range expanded[1:] {
+		dests[e.Dest] = true
+	}
+	assert.True(t, dests["output/images/README.md"])
+	assert.True(t, dests["output/images/photos/cat.jpg"])
+	assert.True(t, dests["output/images/photos/dog.jpg"])
+	assert.True(t, dests["output/images/icons/logo.png"])
+}
+
+func TestExpandDirEntries_EmptyRemote(t *testing.T) {
+	t.Parallel()
+
+	remote := map[string][]byte{}
+	entries := []Entry{
+		{Kind: KindDir, Src: "common", Dest: "output/common"},
+	}
+
+	expanded := ExpandDirEntries(remote, entries)
+	assert.Equal(t, 1, len(expanded))
+}
+
+func TestLoadAndValidateManifest_MissingEntries(t *testing.T) {
+	t.Parallel()
+	data := []byte(`{"mode": "single"}`)
+	_, err := LoadAndValidateManifest(data)
+	require.Error(t, err)
 }

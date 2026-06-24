@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseArg(t *testing.T) {
@@ -46,22 +48,14 @@ func TestParseArg(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotName, gotRange := parseArg(tt.arg)
-			if gotName != tt.wantName {
-				t.Errorf("parseArg(%q) name = %q, want %q", tt.arg, gotName, tt.wantName)
-			}
-			if gotRange != tt.wantRange {
-				t.Errorf("parseArg(%q) range = %q, want %q", tt.arg, gotRange, tt.wantRange)
-			}
+			assert.Equal(t, tt.wantName, gotName)
+			assert.Equal(t, tt.wantRange, gotRange)
 		})
 	}
 }
 
 func TestParseComponentArg(t *testing.T) {
 	name, rangeSpec := parseComponentArg("code-block@^1.0.0")
-	if name != "code-block" {
-		t.Errorf("name = %q, want code-block", name)
-	}
-	if rangeSpec != "^1.0.0" {
-		t.Errorf("rangeSpec = %q, want ^1.0.0", rangeSpec)
-	}
+	assert.Equal(t, "code-block", name)
+	assert.Equal(t, "^1.0.0", rangeSpec)
 }

@@ -2,9 +2,13 @@ package services
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSanitizeFilename(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    string
@@ -35,19 +39,50 @@ func TestSanitizeFilename(t *testing.T) {
 			input:    `test"file`,
 			expected: "test-file",
 		},
+		{
+			name:     "filename with pipe",
+			input:    "file|name",
+			expected: "file-name",
+		},
+		{
+			name:     "filename with question mark",
+			input:    "file?name",
+			expected: "file-name",
+		},
+		{
+			name:     "filename with asterisk",
+			input:    "file*name",
+			expected: "file-name",
+		},
+		{
+			name:     "filename with backslash",
+			input:    `file\name`,
+			expected: "file-name",
+		},
+		{
+			name:     "multiple illegal chars",
+			input:    `<>"|?*`,
+			expected: "------",
+		},
+		{
+			name:     "spaces preserved",
+			input:    "hello world",
+			expected: "hello world",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := SanitizeFilename(tt.input)
-			if got != tt.expected {
-				t.Errorf("SanitizeFilename(%q) = %q, want %q", tt.input, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
 
 func TestApplyTemplate(t *testing.T) {
+	t.Parallel()
+
 	vars := map[string]string{
 		"lab_number": "1",
 		"course":     "SO",
@@ -84,14 +119,37 @@ func TestApplyTemplate(t *testing.T) {
 			outputType: "Informe",
 			expected:   "",
 		},
+		{
+			name:       "template with no vars",
+			tpl:        "static_name",
+			outputType: "Informe",
+			expected:   "static_name",
+		},
+		{
+			name:       "output_type with illegal chars",
+			tpl:        "{output_type}",
+			outputType: "Código Fuente",
+			expected:   "Código Fuente",
+		},
+		{
+			name:       "multiple same var",
+			tpl:        "{lab_number}_{lab_number}",
+			outputType: "Informe",
+			expected:   "1_1",
+		},
+		{
+			name:       "empty output type",
+			tpl:        "{output_type}_{lab_number}",
+			outputType: "",
+			expected:   "_1",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := ApplyTemplate(tt.tpl, vars, tt.outputType)
-			if got != tt.expected {
-				t.Errorf("ApplyTemplate(%q, vars, %q) = %q, want %q", tt.tpl, tt.outputType, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
