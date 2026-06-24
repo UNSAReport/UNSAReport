@@ -8,31 +8,32 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/UNSAReport/UNSAReport/internal/adapters/config"
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
 type InstallOptions struct {
 	Dest     string
 	Session  string
-	Repo     string
-	Ref      string
 	Template string
 	Local    string
 }
 
 type InstallService struct {
-	Fetcher  ports.TemplateFetcher
-	FS       ports.FileSystem
-	Config   ports.ConfigStore
-	Registry ports.TemplateRegistry
+	Fetcher          ports.TemplateFetcher
+	FS               ports.FileSystem
+	Config           ports.ConfigStore
+	Registry         ports.TemplateRegistry
+	ComponentService *ComponentService
 }
 
-func NewInstallService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry) *InstallService {
+func NewInstallService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry, cs *ComponentService) *InstallService {
 	return &InstallService{
-		Fetcher:  f,
-		FS:       fs,
-		Config:   c,
-		Registry: r,
+		Fetcher:          f,
+		FS:               fs,
+		Config:           c,
+		Registry:         r,
+		ComponentService: cs,
 	}
 }
 
@@ -86,21 +87,23 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		return fmt.Errorf("--session flag can only be used with multi-mode templates")
 	}
 
-	template, err := s.Registry.GetTemplate(opt.Template)
+	name, rangeSpec := parseTemplateArg(opt.Template)
+
+	template, err := s.Registry.GetTemplateVersion(name, rangeSpec)
 	if err != nil {
 		return fmt.Errorf("get template: %w", err)
 	}
 
 	var files map[string][]byte
 	if opt.Local != "" {
-		localDir := filepath.Join(opt.Local, template.Name)
+		localDir := filepath.Join(opt.Local, template.Path)
 		files, err = s.Fetcher.LoadLocal(localDir)
 		if err != nil {
 			return fmt.Errorf("load local templates: %w", err)
 		}
 		cfg.LocalSource = opt.Local
 	} else {
-		files, err = s.Fetcher.Fetch(ctx, template.Repo, template.Ref, template.Path)
+		files, err = s.Fetcher.Fetch(ctx, ports.DefaultTemplateRepo, ports.DefaultRef, template.Path)
 		if err != nil {
 			return fmt.Errorf("fetch templates: %w", err)
 		}
@@ -128,8 +131,10 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
 
 	cfg.Template = template.Name
+	cfg.TemplateVersion = template.Version
 	cfg.Mode = m.Mode
 
+	var installedEntries []Entry
 	if m.Mode == "multi" {
 		if !hasConfig {
 			multiEntries, err := m.GetMultiEntries()
@@ -140,6 +145,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 			if err := s.applyEntriesInstall(files, destDir, rootEntries); err != nil {
 				return err
 			}
+			installedEntries = append(installedEntries, rootEntries...)
 		}
 
 		multiEntries, err := m.GetMultiEntries()
@@ -157,6 +163,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		if err := s.applyEntriesInstall(files, destDir, labEntriesExpanded); err != nil {
 			return err
 		}
+		installedEntries = append(installedEntries, labEntriesExpanded...)
 
 		sessionFound := slices.Contains(cfg.Sessions, lab)
 		if !sessionFound {
@@ -172,6 +179,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		if err := s.applyEntriesInstall(files, destDir, allEntries); err != nil {
 			return err
 		}
+		installedEntries = append(installedEntries, allEntries...)
 	}
 
 	if err := s.Config.WriteConfig(destDir, cfg); err != nil {
@@ -182,6 +190,35 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	} else {
 		fmt.Fprintf(os.Stdout, "Updated: unsareport.json\n")
 	}
+
+	components := m.GetComponents()
+	if len(components) > 0 && s.ComponentService != nil {
+		if err := s.FS.Chdir(destDir); err != nil {
+			return fmt.Errorf("chdir to dest: %w", err)
+		}
+
+		fmt.Fprintf(os.Stdout, "\n%s\n", "Downloading components...")
+		fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+
+		for name, rangeSpec := range components {
+			fmt.Fprintf(os.Stdout, "  Component: %s (range: %s)\n", name, rangeSpec)
+		}
+
+		results, err := s.ComponentService.AddFromManifest(ctx, components)
+		if err != nil {
+			return fmt.Errorf("download components: %w", err)
+		}
+
+		for _, r := range results {
+			fmt.Fprintf(os.Stdout, "    -> Resolved: %s (version: %s)\n", r.Name, r.ResolvedVersion)
+			fmt.Fprintf(os.Stdout, "  Created: components/%s.typ\n", r.Name)
+		}
+
+		fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+		fmt.Fprintf(os.Stdout, "Components installed: %d\n", len(results))
+	}
+
+	s.recordTemplateLockfile(destDir, cfg, installedEntries, files)
 
 	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
 	fmt.Fprintln(os.Stdout, "Installation complete!")
@@ -220,6 +257,7 @@ func (s *InstallService) applyEntryInstall(files map[string][]byte, destDir stri
 			return nil
 		}
 		if s.FS.FileExists(dstPath) {
+			fmt.Fprintf(os.Stdout, "Skipped (exists): %s\n", e.Dest)
 			return nil
 		}
 		if err := s.FS.WriteFileAtomic(dstPath, data, 0o644); err != nil {
@@ -256,4 +294,62 @@ func (s *InstallService) nextSteps(cfg ports.UnsareportConfig) []string {
 		"3. Compile the report:",
 		"   unsarep prepare",
 	}
+}
+
+func parseTemplateArg(arg string) (name, rangeSpec string) {
+	if i := strings.Index(arg, "@"); i != -1 {
+		return arg[:i], arg[i+1:]
+	}
+	return arg, "latest"
+}
+
+func (s *InstallService) recordTemplateLockfile(destDir string, cfg ports.UnsareportConfig, installedEntries []Entry, remoteFiles map[string][]byte) {
+	if len(installedEntries) == 0 {
+		return
+	}
+
+	lf, err := s.Config.ReadLockfile(destDir)
+	if err != nil {
+		return
+	}
+
+	var templateFiles map[string]ports.LockfileTemplateFile
+	if lf.Template != nil && lf.Template.Name == cfg.Template && lf.Template.Version == cfg.TemplateVersion {
+		templateFiles = lf.Template.Files
+	}
+	if templateFiles == nil {
+		templateFiles = make(map[string]ports.LockfileTemplateFile)
+	}
+
+	for _, entry := range installedEntries {
+		if entry.Kind != KindFile {
+			continue
+		}
+		data, ok := remoteFiles[entry.Src]
+		if !ok {
+			continue
+		}
+		dstPath := filepath.Join(destDir, filepath.FromSlash(entry.Dest))
+		if !s.FS.FileExists(dstPath) {
+			continue
+		}
+		localData, err := s.FS.ReadFile(dstPath)
+		if err != nil {
+			continue
+		}
+		if !s.FS.SameContent(localData, data) {
+			localData = data
+		}
+		templateFiles[entry.Dest] = ports.LockfileTemplateFile{
+			Integrity: config.ComputeIntegrity(localData),
+		}
+	}
+
+	lf.Template = &ports.LockfileTemplate{
+		Name:    cfg.Template,
+		Version: cfg.TemplateVersion,
+		Files:   templateFiles,
+	}
+
+	s.Config.WriteLockfile(destDir, lf)
 }

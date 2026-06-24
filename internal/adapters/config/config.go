@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
@@ -79,6 +80,14 @@ func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, erro
 
 func (a *Adapter) WriteConfig(destDir string, cfg ports.UnsareportConfig) error {
 	path := filepath.Join(destDir, "unsareport.json")
+
+	parts := strings.SplitN(ports.Version, ".", 3)
+	majorMinor := ports.Version
+	if len(parts) >= 2 {
+		majorMinor = parts[0] + "." + parts[1]
+	}
+	cfg.Schema = fmt.Sprintf("https://raw.githubusercontent.com/UNSAReport/UNSAReport/v%s/schemas/unsareport.schema.json", majorMinor)
+
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)

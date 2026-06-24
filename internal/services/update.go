@@ -9,32 +9,35 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
+	"github.com/UNSAReport/UNSAReport/internal/adapters/config"
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 	"github.com/charmbracelet/huh"
 )
 
 type UpdateOptions struct {
-	Dest    string
-	Force   bool
-	Session string
-	Repo    string
-	Ref     string
-	Local   string
+	Dest     string
+	Force    bool
+	Session  string
+	Local    string
+	Rollback bool
 }
 
 type UpdateService struct {
-	Fetcher  ports.TemplateFetcher
-	FS       ports.FileSystem
-	Config   ports.ConfigStore
-	Registry ports.TemplateRegistry
+	Fetcher          ports.TemplateFetcher
+	FS               ports.FileSystem
+	Config           ports.ConfigStore
+	Registry         ports.TemplateRegistry
+	ComponentService *ComponentService
 }
 
-func NewUpdateService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry) *UpdateService {
+func NewUpdateService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry, cs *ComponentService) *UpdateService {
 	return &UpdateService{
-		Fetcher:  f,
-		FS:       fs,
-		Config:   c,
-		Registry: r,
+		Fetcher:          f,
+		FS:               fs,
+		Config:           c,
+		Registry:         r,
+		ComponentService: cs,
 	}
 }
 
@@ -69,48 +72,33 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		isMulti = cfg.Mode == "multi"
 		destDir = projectRoot
 	} else {
-		defaultCfg := ports.UnsareportConfig{
-			Mode:     "",
-			Sessions: []string{},
-			Prepare: ports.PrepareConfig{
-				Input: ports.PrepareInputConfig{
-					SrcDir:     "src",
-					ReportFile: "report.typ",
-				},
-				Output: ports.PrepareOutputConfig{
-					SubmissionDir: "submission",
-					FileTemplate:  "{output_type}_{lab_number}",
-					ReportWord:    "Informe",
-					CodeWord:      "Código Fuente",
-				},
-			},
-			Capture: ports.CaptureConfig{
-				Columns:     120,
-				FreezeFlags: []string{},
-				Prompt:      "❯ ",
-				Colors: map[string]string{
-					"prompt":  "32",
-					"command": "36",
-					"args":    "33",
-					"reset":   "0",
-				},
-			},
-		}
-		if err := s.Config.WriteConfig(destDir, defaultCfg); err != nil {
-			return fmt.Errorf("write default config: %w", err)
-		}
-		fmt.Fprintln(os.Stdout, "unsareport.json not found. Created default config in the target directory.")
-		fmt.Fprintln(os.Stdout, "Please validate the configuration and run the command again.")
-		return nil
+		return fmt.Errorf("no project found in %s. Run 'unsarep install' first", destDir)
 	}
 
 	if err := s.FS.Chdir(destDir); err != nil {
 		return fmt.Errorf("chdir to dest: %w", err)
 	}
 
-	template, err := s.Registry.GetTemplate(cfg.Template)
+	template, err := s.Registry.GetTemplateVersion(cfg.Template, cfg.TemplateVersion)
 	if err != nil {
 		return fmt.Errorf("get template: %w", err)
+	}
+
+	latestTemplate, err := s.Registry.GetTemplateVersion(cfg.Template, "latest")
+	if err == nil && cfg.TemplateVersion != "" {
+		current, cErr := semver.NewVersion(cfg.TemplateVersion)
+		latest, lErr := semver.NewVersion(latestTemplate.Version)
+		if cErr == nil && lErr == nil {
+			if latest.GreaterThan(current) {
+				if latest.Major() > current.Major() {
+					fmt.Fprintf(os.Stdout, "Major version update available: %s -> %s\n", current, latest)
+					fmt.Fprintf(os.Stdout, "Run 'unsarep install %s@%s' to upgrade to the new major version.\n", cfg.Template, latest)
+					return nil
+				}
+				fmt.Fprintf(os.Stdout, "Template update available: %s -> %s (current: %s)\n", cfg.Template, latest, current)
+				template = latestTemplate
+			}
+		}
 	}
 
 	localSource := opt.Local
@@ -120,12 +108,12 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 
 	var remoteFiles map[string][]byte
 	if localSource != "" {
-		remoteFiles, err = s.Fetcher.LoadLocal(localSource)
+		remoteFiles, err = s.Fetcher.LoadLocal(filepath.Join(localSource, template.Path))
 		if err != nil {
 			return fmt.Errorf("load local templates: %w", err)
 		}
 	} else {
-		remoteFiles, err = s.Fetcher.Fetch(ctx, opt.Repo, opt.Ref, template.Path)
+		remoteFiles, err = s.Fetcher.Fetch(ctx, ports.DefaultTemplateRepo, ports.DefaultRef, template.Path)
 		if err != nil {
 			return fmt.Errorf("fetch templates: %w", err)
 		}
@@ -141,10 +129,43 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	}
 
 	fmt.Fprintf(os.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti])
+
+	if isMulti && opt.Session == "" && len(cfg.Sessions) > 1 {
+		fmt.Fprintf(os.Stdout, "This will update all registered sessions: %s\n", strings.Join(cfg.Sessions, ", "))
+		var confirmed bool
+		form := huh.NewForm(huh.NewGroup(
+			huh.NewConfirm().
+				Title("Continue with updating all sessions?").
+				Value(&confirmed),
+		))
+		if err := form.Run(); err != nil {
+			return fmt.Errorf("prompt decision: %w", err)
+		}
+		if !confirmed {
+			fmt.Fprintln(os.Stdout, "Update cancelled.")
+			return nil
+		}
+	}
+
 	fmt.Fprintf(os.Stdout, "Checking for updates in: %s\n\n", destDir)
 
 	entries := s.buildUpdateEntries(m, isMulti, cfg, opt.Session)
 	entries = ExpandDirEntries(remoteFiles, entries)
+
+	updatableEntries := make([]Entry, 0)
+	for _, e := range entries {
+		if e.Updatable {
+			updatableEntries = append(updatableEntries, e)
+		}
+	}
+
+	if len(updatableEntries) > 0 {
+		rb := NewRollbackService(s.FS, s.Config)
+		if err := rb.CreateBackup(destDir, updatableEntries, cfg); err != nil {
+			fmt.Fprintf(os.Stdout, "Warning: could not create backup: %v\n", err)
+		}
+	}
+
 	applied := 0
 	autoAcceptAll := opt.Force
 
@@ -225,6 +246,20 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	}
 
 	fmt.Fprintf(os.Stdout, "\nUpdate finished. %d files updated.\n", applied)
+
+	if s.ComponentService != nil {
+		if err := s.syncComponents(ctx, destDir, m.GetComponents(), cfg); err != nil {
+			fmt.Fprintf(os.Stdout, "Warning: component sync failed: %v\n", err)
+		}
+	}
+
+	cfg.TemplateVersion = template.Version
+	if err := s.Config.WriteConfig(destDir, cfg); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+
+	s.recordTemplateLockfile(destDir, cfg, m, remoteFiles)
+
 	return nil
 }
 
@@ -322,4 +357,94 @@ func (s *UpdateService) promptUpdateDecision(label string) (updateDecision, erro
 		return "", err
 	}
 	return choice, nil
+}
+
+func (s *UpdateService) recordTemplateLockfile(destDir string, cfg ports.UnsareportConfig, m *Manifest, remoteFiles map[string][]byte) {
+	templateFiles := make(map[string]ports.LockfileTemplateFile)
+
+	entries := s.buildUpdateEntries(m, cfg.Mode == "multi", cfg, "")
+	expanded := ExpandDirEntries(remoteFiles, entries)
+
+	for _, entry := range expanded {
+		if entry.Kind != KindFile {
+			continue
+		}
+		dstPath := filepath.Join(destDir, filepath.FromSlash(entry.Dest))
+		if !s.FS.FileExists(dstPath) {
+			continue
+		}
+		localData, err := s.FS.ReadFile(dstPath)
+		if err != nil {
+			continue
+		}
+		templateFiles[entry.Dest] = ports.LockfileTemplateFile{
+			Integrity: config.ComputeIntegrity(localData),
+		}
+	}
+
+	lf, err := s.Config.ReadLockfile(destDir)
+	if err != nil {
+		return
+	}
+
+	lf.Template = &ports.LockfileTemplate{
+		Name:    cfg.Template,
+		Version: cfg.TemplateVersion,
+		Files:   templateFiles,
+	}
+
+	s.Config.WriteLockfile(destDir, lf)
+}
+
+func (s *UpdateService) syncComponents(ctx context.Context, manifestComponents map[string]string, cfg ports.UnsareportConfig) error {
+	if len(manifestComponents) == 0 {
+		return nil
+	}
+
+	fmt.Fprintf(os.Stdout, "\nSyncing components...\n")
+	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+
+	installed := make(map[string]string)
+	if cfg.Components != nil {
+		for name, entry := range cfg.Components {
+			installed[name] = entry.Version
+		}
+	}
+
+	for name, rangeSpec := range manifestComponents {
+		installedVersion, isInstalled := installed[name]
+
+		if isInstalled {
+			constraint, err := semver.NewConstraint(rangeSpec)
+			if err != nil {
+				continue
+			}
+			v, err := semver.NewVersion(installedVersion)
+			if err != nil {
+				continue
+			}
+			if ok, _ := constraint.Validate(v); ok {
+				continue
+			}
+
+			fmt.Fprintf(os.Stdout, "  Updating %s: %s -> %s (required: %s)\n", name, installedVersion, rangeSpec, rangeSpec)
+			if err := s.ComponentService.Add(ctx, name, rangeSpec, false); err != nil {
+				fmt.Fprintf(os.Stdout, "  Warning: failed to update %s: %v\n", name, err)
+			}
+		} else {
+			fmt.Fprintf(os.Stdout, "  Installing %s (%s)\n", name, rangeSpec)
+			if err := s.ComponentService.Add(ctx, name, rangeSpec, false); err != nil {
+				fmt.Fprintf(os.Stdout, "  Warning: failed to install %s: %v\n", name, err)
+			}
+		}
+	}
+
+	for name := range installed {
+		if _, required := manifestComponents[name]; !required {
+			fmt.Fprintf(os.Stdout, "  Note: Component %s is installed but not required by the template\n", name)
+		}
+	}
+
+	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+	return nil
 }

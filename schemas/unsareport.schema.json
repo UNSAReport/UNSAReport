@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UNSAReport Configuration Schema",
+  "description": "Schema for unsareport.json configuration files",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URL to the JSON schema"
+    },
+    "template": {
+      "type": "string",
+      "description": "The template to use for the report"
+    },
+    "templateVersion": {
+      "type": "string",
+      "description": "The installed template version"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["single", "multi"],
+      "description": "Installation mode: single lab or multiple labs"
+    },
+    "localSource": {
+      "type": "string",
+      "description": "Local path to templates (optional)"
+    },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of lab sessions in multi-lab mode"
+    },
+    "components": {
+      "type": "object",
+      "description": "Installed components with their versions",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Installed component version"
+          },
+          "installed_at": {
+            "type": "string",
+            "description": "Installation timestamp (RFC3339)"
+          }
+        },
+        "required": ["version", "installed_at"]
+      }
+    },
+    "capture": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "integer",
+          "default": 120
+        },
+        "freezeFlags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prompt": {
+          "type": "string",
+          "default": "❯ "
+        },
+        "colors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "prepare": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "object",
+          "properties": {
+            "srcDir": {
+              "type": "string",
+              "default": "src"
+            },
+            "reportFile": {
+              "type": "string",
+              "default": "report.typ"
+            }
+          }
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "submissionDir": {
+              "type": "string",
+              "default": "submission"
+            },
+            "fileTemplate": {
+              "type": "string"
+            },
+            "reportWord": {
+              "type": "string"
+            },
+            "codeWord": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["template", "mode"]
+}

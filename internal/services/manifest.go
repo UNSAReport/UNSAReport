@@ -28,18 +28,21 @@ type MultiEntrySet struct {
 }
 
 type Manifest struct {
-	Mode    string      `json:"mode"`
-	Entries interface{} `json:"entries"`
+	Mode       string            `json:"mode"`
+	Components map[string]string `json:"components,omitempty"`
+	Entries    interface{}       `json:"entries"`
 }
 
 type SingleManifest struct {
-	Mode    string  `json:"mode"`
-	Entries []Entry `json:"entries"`
+	Mode       string            `json:"mode"`
+	Components map[string]string `json:"components,omitempty"`
+	Entries    []Entry           `json:"entries"`
 }
 
 type MultiManifest struct {
-	Mode    string         `json:"mode"`
-	Entries MultiEntrySet  `json:"entries"`
+	Mode       string            `json:"mode"`
+	Components map[string]string `json:"components,omitempty"`
+	Entries    MultiEntrySet     `json:"entries"`
 }
 
 func (m *SingleManifest) Validate() error {
@@ -117,7 +120,7 @@ func LoadAndValidateManifest(data []byte) (*Manifest, error) {
 		if err := sm.Validate(); err != nil {
 			return nil, fmt.Errorf("validate manifest: %w", err)
 		}
-		return &Manifest{Mode: sm.Mode, Entries: sm.Entries}, nil
+		return &Manifest{Mode: sm.Mode, Components: sm.Components, Entries: sm.Entries}, nil
 
 	case strings.Contains(string(data), `"mode": "multi"`):
 		var mm MultiManifest
@@ -127,11 +130,22 @@ func LoadAndValidateManifest(data []byte) (*Manifest, error) {
 		if err := mm.Validate(); err != nil {
 			return nil, fmt.Errorf("validate manifest: %w", err)
 		}
-		return &Manifest{Mode: mm.Mode, Entries: mm.Entries}, nil
+		return &Manifest{Mode: mm.Mode, Components: mm.Components, Entries: mm.Entries}, nil
 
 	default:
 		return nil, fmt.Errorf("manifest mode must be %q or %q", "single", "multi")
 	}
+}
+
+func (m *Manifest) GetComponents() map[string]string {
+	if m.Components == nil {
+		return map[string]string{}
+	}
+	return m.Components
+}
+
+func (m *Manifest) GetEntries() interface{} {
+	return m.Entries
 }
 
 func (m *Manifest) GetSingleEntries() ([]Entry, error) {

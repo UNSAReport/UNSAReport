@@ -3,6 +3,7 @@ module github.com/UNSAReport/UNSAReport
 go 1.26.2
 
 require (
+	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/aymanbagabas/go-pty v0.2.3
 	github.com/charmbracelet/huh v1.0.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51

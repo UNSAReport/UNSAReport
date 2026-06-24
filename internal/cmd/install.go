@@ -30,6 +30,12 @@ If no template is specified, an interactive picker will be shown.`,
   # Install a specific template
   unsarep install lab
 
+  # Install a specific version
+  unsarep install lab@1.0.0
+
+  # Install with version range
+  unsarep install lab@^1.0.0
+
   # Install in a specific directory
   unsarep install lab --dest ./my-reports
 
@@ -53,7 +59,7 @@ If no template is specified, an interactive picker will be shown.`,
 				}
 				templateName = selected
 			} else {
-				selected, err := pickTemplate(opt.Repo, opt.Ref)
+				selected, err := pickTemplate()
 				if err != nil {
 					return err
 				}
@@ -66,28 +72,25 @@ If no template is specified, an interactive picker will be shown.`,
 			fetcher := github.New()
 			cfg := config.New()
 
-			reg := registry.NewRemote(opt.Repo, opt.Ref, fetcher)
+			reg := registry.NewRemote(fetcher)
+			compReg := registry.NewComponentRegistry(fetcher)
+			compSvc := services.NewComponentService(fetcher, fs, cfg, compReg)
 
-			svc := services.NewInstallService(fetcher, fs, cfg, reg)
+			svc := services.NewInstallService(fetcher, fs, cfg, reg, compSvc)
 			return svc.Execute(cmd.Context(), opt)
 		},
 	}
 
 	cmd.Flags().StringVar(&opt.Dest, "dest", "", "Destination directory (default: current working directory)")
 	cmd.Flags().StringVar(&opt.Session, "session", "", "Session/Lab name for per-lab installation in multi-lab templates")
-	cmd.Flags().StringVar(&opt.Repo, "repo", "UNSAReport/templates", "GitHub repo to fetch templates from (owner/repo)")
-	cmd.Flags().StringVar(&opt.Ref, "ref", "main", "Git ref to fetch templates from")
 	cmd.Flags().StringVar(&opt.Local, "local", "", "Local directory containing template files to install from")
-
-	cmd.MarkFlagsMutuallyExclusive("local", "repo")
-	cmd.MarkFlagsMutuallyExclusive("local", "ref")
 
 	return cmd
 }
 
-func pickTemplate(repo, ref string) (string, error) {
+func pickTemplate() (string, error) {
 	fetcher := github.New()
-	reg := registry.NewRemote(repo, ref, fetcher)
+	reg := registry.NewRemote(fetcher)
 
 	templates, err := reg.ListTemplates()
 	if err != nil {
