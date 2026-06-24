@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 	"time"
@@ -14,13 +15,17 @@ type CaptureService struct {
 	Renderer ports.Renderer
 	FS       ports.FileSystem
 	Config   ports.ConfigStore
+	Stdout   io.Writer
+	Stderr   io.Writer
 }
 
-func NewCaptureService(r ports.Renderer, fs ports.FileSystem, c ports.ConfigStore) *CaptureService {
+func NewCaptureService(r ports.Renderer, fs ports.FileSystem, c ports.ConfigStore, stdout, stderr io.Writer) *CaptureService {
 	return &CaptureService{
 		Renderer: r,
 		FS:       fs,
 		Config:   c,
+		Stdout:   stdout,
+		Stderr:   stderr,
 	}
 }
 
@@ -37,10 +42,16 @@ func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error
 		return fmt.Errorf("get cwd: %w", err)
 	}
 
-	projectRoot, cfg, ok, _ := s.Config.FindProjectRoot(cwd)
+	projectRoot, cfg, ok, err := s.Config.FindProjectRoot(cwd)
+	if err != nil {
+		return fmt.Errorf("find project root: %w", err)
+	}
 	if !ok {
 		projectRoot = cwd
-		cfg, _, _ = s.Config.ReadConfig(cwd)
+		cfg, _, err = s.Config.ReadConfig(cwd)
+		if err != nil {
+			return fmt.Errorf("read config: %w", err)
+		}
 	}
 
 	if opts.SaveFreezeFlags {
@@ -63,14 +74,26 @@ func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error
 	var commands []ports.CaptureCommand
 
 	if opts.Cwd != "" {
-		commands = append(commands, ports.CaptureCommand{Type: "Type", Args: fmt.Sprintf("cd %s", opts.Cwd)})
+		absCwd, err := filepath.Abs(opts.Cwd)
+		if err != nil {
+			return fmt.Errorf("invalid cwd path: %w", err)
+		}
+		info, err := s.FS.Stat(absCwd)
+		if err != nil {
+			return fmt.Errorf("cwd path not accessible: %w", err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("cwd path is not a directory: %s", absCwd)
+		}
+		safeCwd := shellQuotePath(absCwd)
+		commands = append(commands, ports.CaptureCommand{Type: "Type", Args: "cd " + safeCwd})
 		commands = append(commands, ports.CaptureCommand{Type: "Enter"})
 		commands = append(commands, ports.CaptureCommand{Type: "Type", Args: "clear"})
 		commands = append(commands, ports.CaptureCommand{Type: "Enter"})
 	}
 
 	for _, instr := range instructions {
-		fmt.Printf("Capturing instruction: %s\n", instr)
+		fmt.Fprintf(s.Stdout, "Capturing instruction: %s\n", instr)
 		if after, ok := strings.CutPrefix(instr, "w:"); ok {
 			d, err := time.ParseDuration(after)
 			if err != nil {
@@ -124,8 +147,16 @@ func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error
 	if err := s.FS.EnsureDir("capture_logs"); err == nil {
 		timestamp := time.Now().Format("02-01-2006_15-04-05")
 		logPath := filepath.Join("capture_logs", timestamp+".log")
-		s.FS.WriteFileAtomic(logPath, []byte(output), 0644)
+		if err := s.FS.WriteFileAtomic(logPath, []byte(output), 0644); err != nil {
+			fmt.Fprintf(s.Stderr, "Warning: failed to write capture log: %v\n", err)
+		}
 	}
 
 	return nil
+}
+
+// shellQuotePath quotes a file path for safe use in shell commands.
+// It wraps the path in single quotes, escaping any embedded single quotes.
+func shellQuotePath(path string) string {
+	return "'" + strings.ReplaceAll(path, "'", "'\\''") + "'"
 }

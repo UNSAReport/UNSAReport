@@ -61,10 +61,10 @@ func (a *Adapter) ArchiveFiles(zipPath, baseDir string, files []string) error {
 	if err != nil {
 		return fmt.Errorf("create zip file: %w", err)
 	}
-	defer out.Close()
+	defer out.Close() //nolint:errcheck // file close
 
 	zw := zip.NewWriter(out)
-	defer zw.Close()
+	defer zw.Close() //nolint:errcheck // zip writer close
 
 	for _, rel := range files {
 		path := filepath.Join(baseDir, rel)
@@ -91,7 +91,7 @@ func (a *Adapter) ArchiveFiles(zipPath, baseDir string, files []string) error {
 			return fmt.Errorf("open %s: %w", path, err)
 		}
 		_, err = io.Copy(w, f)
-		f.Close()
+		f.Close() //nolint:errcheck // file close after copy
 		if err != nil {
 			return fmt.Errorf("copy %s to zip: %w", path, err)
 		}

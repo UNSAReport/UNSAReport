@@ -11,7 +11,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+const (
+	httpTimeout       = 30 * time.Second
+	maxBodySize int64 = 50 << 20 // 50MB
+)
+
+var httpClient = &http.Client{Timeout: httpTimeout}
 
 type Adapter struct{}
 
@@ -34,17 +42,17 @@ func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (ma
 	}
 	req.Header.Set("User-Agent", "unsarep")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // HTTP response body close
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
 		return nil, fmt.Errorf("failed to fetch templates: %s (%s)", resp.Status, strings.TrimSpace(string(b)))
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
 	if err != nil {
 		return nil, fmt.Errorf("read body: %w", err)
 	}
@@ -74,7 +82,9 @@ func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (ma
 			return nil, fmt.Errorf("open file in zip: %w", err)
 		}
 		data, err := io.ReadAll(rc)
-		rc.Close()
+		if err := rc.Close(); err != nil {
+			return nil, fmt.Errorf("close file in zip: %w", err)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("read file in zip: %w", err)
 		}
@@ -144,17 +154,17 @@ func (a *Adapter) FetchRaw(ctx context.Context, repo, ref, path string) ([]byte,
 	}
 	req.Header.Set("User-Agent", "unsarep")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // HTTP response body close
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
 		return nil, fmt.Errorf("failed to fetch %s: %s (%s)", path, resp.Status, strings.TrimSpace(string(b)))
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
 	if err != nil {
 		return nil, fmt.Errorf("read body: %w", err)
 	}

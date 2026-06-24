@@ -41,7 +41,7 @@ and uses it to generate properly named files in a 'submission' folder.`,
 			archiver := zipper.New()
 			cfg := config.New()
 
-			svc := services.NewPrepareService(compiler, archiver, fs, cfg)
+			svc := services.NewPrepareService(compiler, archiver, fs, cfg, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return svc.Execute(cmd.Context(), opt, labDir)
 		},
 	}

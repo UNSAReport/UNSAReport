@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var rootCmd = &cobra.Command{
@@ -14,6 +16,9 @@ It helps you scaffold new projects, update template files, capture terminal outp
 and compile everything into a submission-ready PDF and source code bundle.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return initConfig()
+	},
 }
 
 func Execute() {
@@ -21,6 +26,23 @@ func Execute() {
 	rootCmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
 
 	cobra.CheckErr(rootCmd.Execute())
+}
+
+func initConfig() error {
+	viper.SetEnvPrefix("UNSAREP")
+	if err := viper.BindEnv("dest"); err != nil {
+		return fmt.Errorf("bind env DEST: %w", err)
+	}
+	if err := viper.BindEnv("session"); err != nil {
+		return fmt.Errorf("bind env SESSION: %w", err)
+	}
+	if err := viper.BindEnv("local"); err != nil {
+		return fmt.Errorf("bind env LOCAL: %w", err)
+	}
+	if err := viper.BindEnv("freeze_flags", "UNSAREP_FREEZE_FLAGS"); err != nil {
+		return fmt.Errorf("bind env FREEZE_FLAGS: %w", err)
+	}
+	return nil
 }
 
 func init() {
@@ -33,6 +55,7 @@ func init() {
 		newPrepareCmd(),
 		newCaptureCmd(),
 		newComponentCmd(),
+		newCompletionCmd(),
 	)
 
 	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {

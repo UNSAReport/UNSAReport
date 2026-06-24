@@ -3,8 +3,10 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/UNSAReport/UNSAReport/internal/ports"
@@ -26,16 +28,20 @@ type BackupManifestEntry struct {
 type RollbackService struct {
 	FS     ports.FileSystem
 	Config ports.ConfigStore
+	Stdout io.Writer
+	Stderr io.Writer
 }
 
-func NewRollbackService(fs ports.FileSystem, cfg ports.ConfigStore) *RollbackService {
-	return &RollbackService{FS: fs, Config: cfg}
+func NewRollbackService(fs ports.FileSystem, cfg ports.ConfigStore, stdout, stderr io.Writer) *RollbackService {
+	return &RollbackService{FS: fs, Config: cfg, Stdout: stdout, Stderr: stderr}
 }
 
 func (s *RollbackService) CreateBackup(destDir string, entries []Entry, cfg ports.UnsareportConfig) error {
 	backupPath := filepath.Join(destDir, backupDir)
 
-	s.FS.Remove(backupPath)
+	if err := s.FS.Remove(backupPath); err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(s.Stderr, "Warning: could not remove old backup: %v\n", err)
+	}
 
 	if err := s.FS.EnsureDir(backupPath); err != nil {
 		return fmt.Errorf("ensure backup dir: %w", err)
@@ -84,7 +90,7 @@ func (s *RollbackService) CreateBackup(destDir string, entries []Entry, cfg port
 		return fmt.Errorf("write backup manifest: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "Backup created: %s (%d files)\n", backupDir, len(manifest.Files))
+	fmt.Fprintf(s.Stdout, "Backup created: %s (%d files)\n", backupDir, len(manifest.Files))
 	return nil
 }
 
@@ -107,26 +113,35 @@ func (s *RollbackService) Rollback(destDir string) error {
 	}
 
 	restored := 0
+	var failed []string
 	for _, entry := range manifest.Files {
 		backupFile := filepath.Join(backupPath, filepath.FromSlash(entry.RelativePath))
 		if !s.FS.FileExists(backupFile) {
+			failed = append(failed, entry.RelativePath)
 			continue
 		}
 
 		data, err := s.FS.ReadFile(backupFile)
 		if err != nil {
+			failed = append(failed, entry.RelativePath)
 			continue
 		}
 
 		if err := s.FS.WriteFileAtomic(entry.OriginalPath, data, 0o644); err != nil {
+			failed = append(failed, entry.RelativePath)
 			continue
 		}
 		restored++
 	}
 
-	s.FS.Remove(backupPath)
+	if err := s.FS.Remove(backupPath); err != nil {
+		fmt.Fprintf(s.Stderr, "Warning: could not remove backup after restore: %v\n", err)
+	}
 
-	fmt.Fprintf(os.Stdout, "Rollback complete: %d files restored from backup (%s)\n", restored, manifest.Timestamp)
+	fmt.Fprintf(s.Stdout, "Rollback complete: %d files restored from backup (%s)\n", restored, manifest.Timestamp)
+	if len(failed) > 0 {
+		fmt.Fprintf(s.Stderr, "Warning: %d files could not be restored: %s\n", len(failed), strings.Join(failed, ", "))
+	}
 	return nil
 }
 

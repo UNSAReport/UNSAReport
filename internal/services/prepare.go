@@ -2,13 +2,16 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/UNSAReport/UNSAReport/internal/adapters/zipper"
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 	"github.com/charmbracelet/huh"
 )
@@ -22,14 +25,18 @@ type PrepareService struct {
 	Archiver ports.Archiver
 	FS       ports.FileSystem
 	Config   ports.ConfigStore
+	Stdout   io.Writer
+	Stderr   io.Writer
 }
 
-func NewPrepareService(c ports.Compiler, a ports.Archiver, fs ports.FileSystem, cfg ports.ConfigStore) *PrepareService {
+func NewPrepareService(c ports.Compiler, a ports.Archiver, fs ports.FileSystem, cfg ports.ConfigStore, stdout, stderr io.Writer) *PrepareService {
 	return &PrepareService{
 		Compiler: c,
 		Archiver: a,
 		FS:       fs,
 		Config:   cfg,
+		Stdout:   stdout,
+		Stderr:   stderr,
 	}
 }
 
@@ -90,7 +97,7 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 
 	generatedReportName := ApplyTemplate(pctx.cfg.Prepare.Output.FileTemplate, vars, reportWord)
 
-	fmt.Fprintln(os.Stdout, "Compiling typst report...")
+	fmt.Fprintln(s.Stdout, "Compiling typst report...")
 	inputs := map[string]string{"title": generatedReportName}
 	if pctx.isMulti {
 		inputs["unsarep-root"] = "/" + pctx.labDir + "/"
@@ -117,9 +124,11 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 	}
 
 	zipPath := filepath.Join(submissionDir, codeFile)
-	s.FS.Remove(zipPath)
+	if err := s.FS.Remove(zipPath); err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(s.Stderr, "Warning: could not remove old zip: %v\n", err)
+	}
 
-	fmt.Fprintf(os.Stdout, "Archiving %s to %s...\n", srcDir, zipPath)
+	fmt.Fprintf(s.Stdout, "Archiving %s to %s...\n", srcDir, zipPath)
 	files, err := s.listGitFiles(ctx, srcDir)
 	if err != nil {
 		return fmt.Errorf("list git files: %w", err)
@@ -131,16 +140,16 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 		}
 	} else {
 		if err := s.Archiver.ArchiveDir(zipPath, srcDir); err != nil {
-			if strings.Contains(err.Error(), "source directory not found") {
-				fmt.Fprintf(os.Stdout, "Warning: %s directory not found. Skipping zip generation.\n", srcDir)
+			if errors.Is(err, zipper.ErrSourceMissing) {
+				fmt.Fprintf(s.Stderr, "Warning: %s directory not found. Skipping zip generation.\n", srcDir)
 			} else {
 				return fmt.Errorf("archive dir: %w", err)
 			}
 		}
 	}
 
-	fmt.Fprintf(os.Stdout, "\nReport: %s\n", filepath.Join(submissionDir, reportFile))
-	fmt.Fprintf(os.Stdout, "Code:  %s\n", filepath.Join(submissionDir, codeFile))
+	fmt.Fprintf(s.Stdout, "\nReport: %s\n", filepath.Join(submissionDir, reportFile))
+	fmt.Fprintf(s.Stdout, "Code:  %s\n", filepath.Join(submissionDir, codeFile))
 	return nil
 }
 
@@ -182,7 +191,7 @@ func (s *PrepareService) listGitFiles(ctx context.Context, srcDir string) ([]str
 func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareContext, error) {
 	projectRoot, cfg, ok, err := s.Config.FindProjectRoot(cwd)
 	if err != nil {
-		fmt.Fprintln(os.Stdout, err.Error())
+		return prepareContext{}, fmt.Errorf("find project root: %w", err)
 	}
 
 	if !ok {
@@ -242,8 +251,8 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 	}
 
 	for {
-		fmt.Fprintln(os.Stdout, "\nVariable configuration for report naming:")
-		fmt.Fprintln(os.Stdout, "Available variables:")
+		fmt.Fprintln(s.Stdout, "\nVariable configuration for report naming:")
+		fmt.Fprintln(s.Stdout, "Available variables:")
 
 		keys := make([]string, 0, len(vars))
 		for k := range vars {
@@ -255,9 +264,9 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 			if k == "output_type" {
 				desc = "Deliverable type (e.g., Informe or Código Fuente)"
 			}
-			fmt.Fprintf(os.Stdout, "  {%s}: %s\n", k, desc)
+			fmt.Fprintf(s.Stdout, "  {%s}: %s\n", k, desc)
 		}
-		fmt.Fprintln(os.Stdout, "\nExample: {output_type}_{lab_number}_{members_abbr_list}")
+		fmt.Fprintln(s.Stdout, "\nExample: {output_type}_{lab_number}_{members_abbr_list}")
 
 		form := huh.NewForm(huh.NewGroup(
 			huh.NewInput().
@@ -320,7 +329,7 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 			if err := s.Config.WriteConfig(pctx.projectRoot, pctx.cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stdout, "Configuration saved to unsareport.json\n")
+			fmt.Fprintf(s.Stdout, "Configuration saved to unsareport.json\n")
 			break
 		}
 	}

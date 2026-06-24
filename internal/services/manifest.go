@@ -30,7 +30,7 @@ type MultiEntrySet struct {
 type Manifest struct {
 	Mode       string            `json:"mode"`
 	Components map[string]string `json:"components,omitempty"`
-	Entries    interface{}       `json:"entries"`
+	Entries    any               `json:"entries"`
 }
 
 type SingleManifest struct {
@@ -142,10 +142,6 @@ func (m *Manifest) GetComponents() map[string]string {
 		return map[string]string{}
 	}
 	return m.Components
-}
-
-func (m *Manifest) GetEntries() interface{} {
-	return m.Entries
 }
 
 func (m *Manifest) GetSingleEntries() ([]Entry, error) {

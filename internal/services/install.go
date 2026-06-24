@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
-	"os"
+	"io"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -25,15 +25,19 @@ type InstallService struct {
 	Config           ports.ConfigStore
 	Registry         ports.TemplateRegistry
 	ComponentService *ComponentService
+	Stdout           io.Writer
+	Stderr           io.Writer
 }
 
-func NewInstallService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry, cs *ComponentService) *InstallService {
+func NewInstallService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry, cs *ComponentService, stdout, stderr io.Writer) *InstallService {
 	return &InstallService{
 		Fetcher:          f,
 		FS:               fs,
 		Config:           c,
 		Registry:         r,
 		ComponentService: cs,
+		Stdout:           stdout,
+		Stderr:           stderr,
 	}
 }
 
@@ -49,7 +53,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 
 	projectRoot, cfg, hasConfig, err := s.Config.FindProjectRoot(destDir)
 	if err != nil {
-		fmt.Fprintln(os.Stdout, err.Error())
+		return fmt.Errorf("find project root: %w", err)
 	}
 	if hasConfig {
 		destDir = projectRoot
@@ -123,12 +127,12 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	}
 
 	if opt.Session != "" {
-		fmt.Fprintf(os.Stdout, "Installing session '%s' into multi-lab project: %s\n", opt.Session, destDir)
+		fmt.Fprintf(s.Stdout, "Installing session '%s' into multi-lab project: %s\n", opt.Session, destDir)
 	} else {
-		fmt.Fprintf(os.Stdout, "Installing %s template to: %s\n", template.Name, destDir)
-		fmt.Fprintf(os.Stdout, "Mode: %s\n", m.Mode)
+		fmt.Fprintf(s.Stdout, "Installing %s template to: %s\n", template.Name, destDir)
+		fmt.Fprintf(s.Stdout, "Mode: %s\n", m.Mode)
 	}
-	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+	fmt.Fprintln(s.Stdout, strings.Repeat("-", 50))
 
 	cfg.Template = template.Name
 	cfg.TemplateVersion = template.Version
@@ -186,9 +190,9 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		return fmt.Errorf("write config: %w", err)
 	}
 	if !hasConfig {
-		fmt.Fprintf(os.Stdout, "Created: unsareport.json (Mode: %s)\n", cfg.Mode)
+		fmt.Fprintf(s.Stdout, "Created: unsareport.json (Mode: %s)\n", cfg.Mode)
 	} else {
-		fmt.Fprintf(os.Stdout, "Updated: unsareport.json\n")
+		fmt.Fprintln(s.Stdout, "Updated: unsareport.json")
 	}
 
 	components := m.GetComponents()
@@ -197,11 +201,11 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 			return fmt.Errorf("chdir to dest: %w", err)
 		}
 
-		fmt.Fprintf(os.Stdout, "\n%s\n", "Downloading components...")
-		fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+		fmt.Fprintf(s.Stdout, "\n%s\n", "Downloading components...")
+		fmt.Fprintln(s.Stdout, strings.Repeat("-", 50))
 
 		for name, rangeSpec := range components {
-			fmt.Fprintf(os.Stdout, "  Component: %s (range: %s)\n", name, rangeSpec)
+			fmt.Fprintf(s.Stdout, "  Component: %s (range: %s)\n", name, rangeSpec)
 		}
 
 		results, err := s.ComponentService.AddFromManifest(ctx, components)
@@ -210,23 +214,23 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		}
 
 		for _, r := range results {
-			fmt.Fprintf(os.Stdout, "    -> Resolved: %s (version: %s)\n", r.Name, r.ResolvedVersion)
-			fmt.Fprintf(os.Stdout, "  Created: components/%s.typ\n", r.Name)
+			fmt.Fprintf(s.Stdout, "    -> Resolved: %s (version: %s)\n", r.Name, r.ResolvedVersion)
+			fmt.Fprintf(s.Stdout, "  Created: components/%s.typ\n", r.Name)
 		}
 
-		fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
-		fmt.Fprintf(os.Stdout, "Components installed: %d\n", len(results))
+		fmt.Fprintln(s.Stdout, strings.Repeat("-", 50))
+		fmt.Fprintf(s.Stdout, "Components installed: %d\n", len(results))
 	}
 
 	s.recordTemplateLockfile(destDir, cfg, installedEntries, files)
 
-	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
-	fmt.Fprintln(os.Stdout, "Installation complete!")
-	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(s.Stdout, strings.Repeat("-", 50))
+	fmt.Fprintln(s.Stdout, "Installation complete!")
+	fmt.Fprintln(s.Stdout)
 	if !hasConfig {
-		fmt.Fprintln(os.Stdout, "Next steps:")
+		fmt.Fprintln(s.Stdout, "Next steps:")
 		for _, step := range s.nextSteps(cfg) {
-			fmt.Fprintln(os.Stdout, step)
+			fmt.Fprintln(s.Stdout, step)
 		}
 	}
 
@@ -257,13 +261,13 @@ func (s *InstallService) applyEntryInstall(files map[string][]byte, destDir stri
 			return nil
 		}
 		if s.FS.FileExists(dstPath) {
-			fmt.Fprintf(os.Stdout, "Skipped (exists): %s\n", e.Dest)
+			fmt.Fprintf(s.Stdout, "Skipped (exists): %s\n", e.Dest)
 			return nil
 		}
 		if err := s.FS.WriteFileAtomic(dstPath, data, 0o644); err != nil {
 			return fmt.Errorf("write file %s: %w", dstPath, err)
 		}
-		fmt.Fprintf(os.Stdout, "Created: %s\n", e.Dest)
+		fmt.Fprintf(s.Stdout, "Created: %s\n", e.Dest)
 		return nil
 	default:
 		return fmt.Errorf("unknown manifest entry kind: %s", e.Kind)
@@ -310,7 +314,7 @@ func (s *InstallService) recordTemplateLockfile(destDir string, cfg ports.Unsare
 
 	lf, err := s.Config.ReadLockfile(destDir)
 	if err != nil {
-		return
+		lf = ports.Lockfile{}
 	}
 
 	var templateFiles map[string]ports.LockfileTemplateFile
@@ -351,5 +355,7 @@ func (s *InstallService) recordTemplateLockfile(destDir string, cfg ports.Unsare
 		Files:   templateFiles,
 	}
 
-	s.Config.WriteLockfile(destDir, lf)
+	if err := s.Config.WriteLockfile(destDir, lf); err != nil {
+		fmt.Fprintf(s.Stderr, "Warning: failed to write lockfile: %v\n", err)
+	}
 }

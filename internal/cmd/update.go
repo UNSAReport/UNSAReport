@@ -38,7 +38,7 @@ flag is used. A backup is created before applying updates, which can be restored
 			if opt.Rollback {
 				fs := osfs.New()
 				cfg := config.New()
-				rb := services.NewRollbackService(fs, cfg)
+				rb := services.NewRollbackService(fs, cfg, cmd.OutOrStdout(), cmd.ErrOrStderr())
 
 				cwd, err := fs.Getwd()
 				if err != nil {
@@ -67,9 +67,9 @@ flag is used. A backup is created before applying updates, which can be restored
 			cfg := config.New()
 			reg := registry.NewRemote(fetcher)
 			compReg := registry.NewComponentRegistry(fetcher)
-			compSvc := services.NewComponentService(fetcher, fs, cfg, compReg)
+			compSvc := services.NewComponentService(fetcher, fs, cfg, compReg, cmd.OutOrStdout(), cmd.ErrOrStderr())
 
-			svc := services.NewUpdateService(fetcher, fs, cfg, reg, compSvc)
+			svc := services.NewUpdateService(fetcher, fs, cfg, reg, compSvc, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return svc.Execute(cmd.Context(), opt)
 		},
 	}

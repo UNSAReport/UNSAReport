@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,15 +30,19 @@ type UpdateService struct {
 	Config           ports.ConfigStore
 	Registry         ports.TemplateRegistry
 	ComponentService *ComponentService
+	Stdout           io.Writer
+	Stderr           io.Writer
 }
 
-func NewUpdateService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry, cs *ComponentService) *UpdateService {
+func NewUpdateService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry, cs *ComponentService, stdout, stderr io.Writer) *UpdateService {
 	return &UpdateService{
 		Fetcher:          f,
 		FS:               fs,
 		Config:           c,
 		Registry:         r,
 		ComponentService: cs,
+		Stdout:           stdout,
+		Stderr:           stderr,
 	}
 }
 
@@ -64,7 +69,7 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 
 	projectRoot, cfg, ok, err := s.Config.FindProjectRoot(destDir)
 	if err != nil {
-		fmt.Fprintln(os.Stdout, err.Error())
+		return fmt.Errorf("find project root: %w", err)
 	}
 
 	isMulti := false
@@ -91,11 +96,11 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		if cErr == nil && lErr == nil {
 			if latest.GreaterThan(current) {
 				if latest.Major() > current.Major() {
-					fmt.Fprintf(os.Stdout, "Major version update available: %s -> %s\n", current, latest)
-					fmt.Fprintf(os.Stdout, "Run 'unsarep install %s@%s' to upgrade to the new major version.\n", cfg.Template, latest)
+					fmt.Fprintf(s.Stdout, "Major version update available: %s -> %s\n", current, latest)
+					fmt.Fprintf(s.Stdout, "Run 'unsarep install %s@%s' to upgrade to the new major version.\n", cfg.Template, latest)
 					return nil
 				}
-				fmt.Fprintf(os.Stdout, "Template update available: %s -> %s (current: %s)\n", cfg.Template, latest, current)
+				fmt.Fprintf(s.Stdout, "Template update available: %s -> %s (current: %s)\n", cfg.Template, latest, current)
 				template = latestTemplate
 			}
 		}
@@ -128,10 +133,10 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		return fmt.Errorf("load manifest: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti])
+	fmt.Fprintf(s.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti])
 
 	if isMulti && opt.Session == "" && len(cfg.Sessions) > 1 {
-		fmt.Fprintf(os.Stdout, "This will update all registered sessions: %s\n", strings.Join(cfg.Sessions, ", "))
+		fmt.Fprintf(s.Stdout, "This will update all registered sessions: %s\n", strings.Join(cfg.Sessions, ", "))
 		var confirmed bool
 		form := huh.NewForm(huh.NewGroup(
 			huh.NewConfirm().
@@ -142,12 +147,12 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 			return fmt.Errorf("prompt decision: %w", err)
 		}
 		if !confirmed {
-			fmt.Fprintln(os.Stdout, "Update cancelled.")
+			fmt.Fprintln(s.Stdout, "Update cancelled.")
 			return nil
 		}
 	}
 
-	fmt.Fprintf(os.Stdout, "Checking for updates in: %s\n\n", destDir)
+	fmt.Fprintf(s.Stdout, "Checking for updates in: %s\n\n", destDir)
 
 	entries := s.buildUpdateEntries(m, isMulti, cfg, opt.Session)
 	entries = ExpandDirEntries(remoteFiles, entries)
@@ -160,9 +165,9 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	}
 
 	if len(updatableEntries) > 0 {
-		rb := NewRollbackService(s.FS, s.Config)
+		rb := NewRollbackService(s.FS, s.Config, s.Stdout, s.Stderr)
 		if err := rb.CreateBackup(destDir, updatableEntries, cfg); err != nil {
-			fmt.Fprintf(os.Stdout, "Warning: could not create backup: %v\n", err)
+			fmt.Fprintf(s.Stderr, "Warning: could not create backup: %v\n", err)
 		}
 	}
 
@@ -211,12 +216,12 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 				if err := apply(); err != nil {
 					return err
 				}
-				fmt.Fprintf(os.Stdout, "✓ Updated [FORCED]: %s\n", label)
+				fmt.Fprintf(s.Stdout, "✓ Updated [FORCED]: %s\n", label)
 				continue
 			}
 
 			if isNew {
-				fmt.Fprintf(os.Stdout, "\n[NEW FILE] %s\n", label)
+				fmt.Fprintf(s.Stdout, "\n[NEW FILE] %s\n", label)
 			} else {
 				s.showDiff(label, string(local), string(remote), dstPath, srcPath)
 			}
@@ -233,11 +238,11 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 				if err := apply(); err != nil {
 					return err
 				}
-				fmt.Fprintf(os.Stdout, "✓ Updated: %s\n", label)
+				fmt.Fprintf(s.Stdout, "✓ Updated: %s\n", label)
 			case decNo:
-				fmt.Fprintf(os.Stdout, "Skipped: %s\n", label)
+				fmt.Fprintf(s.Stdout, "Skipped: %s\n", label)
 			case decQuit:
-				fmt.Fprintln(os.Stdout, "\nStopping update process.")
+				fmt.Fprintln(s.Stdout, "\nStopping update process.")
 				return nil
 			}
 		default:
@@ -245,11 +250,11 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		}
 	}
 
-	fmt.Fprintf(os.Stdout, "\nUpdate finished. %d files updated.\n", applied)
+	fmt.Fprintf(s.Stdout, "\nUpdate finished. %d files updated.\n", applied)
 
 	if s.ComponentService != nil {
-		if err := s.syncComponents(ctx, destDir, m.GetComponents(), cfg); err != nil {
-			fmt.Fprintf(os.Stdout, "Warning: component sync failed: %v\n", err)
+		if err := s.syncComponents(ctx, m.GetComponents(), cfg); err != nil {
+			fmt.Fprintf(s.Stderr, "Warning: component sync failed: %v\n", err)
 		}
 	}
 
@@ -325,17 +330,17 @@ func (s *UpdateService) buildUpdateEntries(m *Manifest, isMulti bool, cfg ports.
 }
 
 func (s *UpdateService) showDiff(fileName, oldText, newText, oldPath, newSrc string) {
-	fmt.Fprintf(os.Stdout, "\n--- Diff for %s ---\n", fileName)
+	fmt.Fprintf(s.Stdout, "\n--- Diff for %s ---\n", fileName)
 	if imageExt.MatchString(fileName) {
-		fmt.Fprintln(os.Stdout, "  [Binary image file changed. Cannot display inline diff.]")
-		fmt.Fprintf(os.Stdout, "  - Local version at: %s\n", oldPath)
-		fmt.Fprintf(os.Stdout, "  + New template at: %s\n", newSrc)
-		fmt.Fprintln(os.Stdout, strings.Repeat("-", 30)+"\n")
+		fmt.Fprintln(s.Stdout, "  [Binary image file changed. Cannot display inline diff.]")
+		fmt.Fprintf(s.Stdout, "  - Local version at: %s\n", oldPath)
+		fmt.Fprintf(s.Stdout, "  + New template at: %s\n", newSrc)
+		fmt.Fprintln(s.Stdout, strings.Repeat("-", 30)+"\n")
 		return
 	}
 
-	fmt.Fprint(os.Stdout, UnifiedLineDiff(oldText, newText))
-	fmt.Fprintln(os.Stdout, strings.Repeat("-", 30)+"\n")
+	fmt.Fprint(s.Stdout, UnifiedLineDiff(oldText, newText))
+	fmt.Fprintln(s.Stdout, strings.Repeat("-", 30)+"\n")
 }
 
 func (s *UpdateService) promptUpdateDecision(label string) (updateDecision, error) {
@@ -384,7 +389,7 @@ func (s *UpdateService) recordTemplateLockfile(destDir string, cfg ports.Unsarep
 
 	lf, err := s.Config.ReadLockfile(destDir)
 	if err != nil {
-		return
+		lf = ports.Lockfile{}
 	}
 
 	lf.Template = &ports.LockfileTemplate{
@@ -393,7 +398,9 @@ func (s *UpdateService) recordTemplateLockfile(destDir string, cfg ports.Unsarep
 		Files:   templateFiles,
 	}
 
-	s.Config.WriteLockfile(destDir, lf)
+	if err := s.Config.WriteLockfile(destDir, lf); err != nil {
+		fmt.Fprintf(s.Stderr, "Warning: failed to write lockfile: %v\n", err)
+	}
 }
 
 func (s *UpdateService) syncComponents(ctx context.Context, manifestComponents map[string]string, cfg ports.UnsareportConfig) error {
@@ -401,8 +408,8 @@ func (s *UpdateService) syncComponents(ctx context.Context, manifestComponents m
 		return nil
 	}
 
-	fmt.Fprintf(os.Stdout, "\nSyncing components...\n")
-	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+	fmt.Fprintf(s.Stdout, "\nSyncing components...\n")
+	fmt.Fprintln(s.Stdout, strings.Repeat("-", 50))
 
 	installed := make(map[string]string)
 	if cfg.Components != nil {
@@ -427,24 +434,24 @@ func (s *UpdateService) syncComponents(ctx context.Context, manifestComponents m
 				continue
 			}
 
-			fmt.Fprintf(os.Stdout, "  Updating %s: %s -> %s (required: %s)\n", name, installedVersion, rangeSpec, rangeSpec)
+			fmt.Fprintf(s.Stdout, "  Updating %s: %s -> %s\n", name, installedVersion, rangeSpec)
 			if err := s.ComponentService.Add(ctx, name, rangeSpec, false); err != nil {
-				fmt.Fprintf(os.Stdout, "  Warning: failed to update %s: %v\n", name, err)
+				fmt.Fprintf(s.Stderr, "  Warning: failed to update %s: %v\n", name, err)
 			}
 		} else {
-			fmt.Fprintf(os.Stdout, "  Installing %s (%s)\n", name, rangeSpec)
+			fmt.Fprintf(s.Stdout, "  Installing %s (%s)\n", name, rangeSpec)
 			if err := s.ComponentService.Add(ctx, name, rangeSpec, false); err != nil {
-				fmt.Fprintf(os.Stdout, "  Warning: failed to install %s: %v\n", name, err)
+				fmt.Fprintf(s.Stderr, "  Warning: failed to install %s: %v\n", name, err)
 			}
 		}
 	}
 
 	for name := range installed {
 		if _, required := manifestComponents[name]; !required {
-			fmt.Fprintf(os.Stdout, "  Note: Component %s is installed but not required by the template\n", name)
+			fmt.Fprintf(s.Stdout, "  Note: Component %s is installed but not required by the template\n", name)
 		}
 	}
 
-	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+	fmt.Fprintln(s.Stdout, strings.Repeat("-", 50))
 	return nil
 }

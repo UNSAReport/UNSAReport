@@ -75,6 +75,20 @@ func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, erro
 			"reset":   "0",
 		}
 	}
+
+	if cfg.Capture.Columns <= 0 {
+		cfg.Capture.Columns = 120
+	}
+	if cfg.Capture.Rows <= 0 {
+		cfg.Capture.Rows = 500
+	}
+	if cfg.Mode != "" && cfg.Mode != "single" && cfg.Mode != "multi" {
+		return ports.UnsareportConfig{}, found, fmt.Errorf("invalid mode %q in unsareport.json (must be \"single\" or \"multi\")", cfg.Mode)
+	}
+	if cfg.Mode == "multi" && len(cfg.Sessions) == 0 {
+		return ports.UnsareportConfig{}, found, fmt.Errorf("multi-mode requires at least one session in unsareport.json")
+	}
+
 	return cfg, found, nil
 }
 

@@ -36,10 +36,10 @@ func (a *Adapter) WriteFileAtomic(path string, data []byte, perm os.FileMode) er
 		return err
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
+	defer os.Remove(tmpName) //nolint:errcheck // best-effort cleanup
 
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
+		tmp.Close() //nolint:errcheck // best-effort cleanup
 		return err
 	}
 	if err := tmp.Close(); err != nil {
@@ -59,12 +59,12 @@ func (a *Adapter) CopyFile(src string, dst string, perm os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer in.Close() //nolint:errcheck // file close
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer out.Close() //nolint:errcheck // file close
 	if _, err := io.Copy(out, in); err != nil {
 		return err
 	}

@@ -74,9 +74,9 @@ If no template is specified, an interactive picker will be shown.`,
 
 			reg := registry.NewRemote(fetcher)
 			compReg := registry.NewComponentRegistry(fetcher)
-			compSvc := services.NewComponentService(fetcher, fs, cfg, compReg)
+			compSvc := services.NewComponentService(fetcher, fs, cfg, compReg, cmd.OutOrStdout(), cmd.ErrOrStderr())
 
-			svc := services.NewInstallService(fetcher, fs, cfg, reg, compSvc)
+			svc := services.NewInstallService(fetcher, fs, cfg, reg, compSvc, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return svc.Execute(cmd.Context(), opt)
 		},
 	}

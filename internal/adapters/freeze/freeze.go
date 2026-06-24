@@ -33,7 +33,10 @@ func (a *Adapter) Render(ctx context.Context, resultPath string, commands []port
 	}
 
 	width := cfg.Columns
-	height := 500
+	height := cfg.Rows
+	if height <= 0 {
+		height = 500
+	}
 
 	output, err := runInPTY(ctx, commands, cfg, width, height)
 	if err != nil && output == "" {
@@ -44,20 +47,20 @@ func (a *Adapter) Render(ctx context.Context, resultPath string, commands []port
 	if err != nil {
 		return output, fmt.Errorf("create temp input file: %w", err)
 	}
-	defer os.Remove(tempInput.Name())
+	defer os.Remove(tempInput.Name()) //nolint:errcheck // best-effort cleanup
 
 	if _, err := tempInput.WriteString(output); err != nil {
 		return output, fmt.Errorf("write temp input file: %w", err)
 	}
-	tempInput.Close()
+	tempInput.Close() //nolint:errcheck // file will be read-only after this
 
 	if filepath.Ext(resultPath) == "" {
 		resultPath += ".png"
 	}
 
 	svgPath := resultPath + ".svg"
-	os.Remove(svgPath)
-	defer os.Remove(svgPath)
+	os.Remove(svgPath)       //nolint:errcheck // best-effort cleanup of old file
+	defer os.Remove(svgPath) //nolint:errcheck // best-effort cleanup
 
 	freezeArgs := []string{
 		tempInput.Name(),
@@ -130,29 +133,37 @@ func typeColored(ptmx io.Writer, vtWrite io.Writer, cmdStr string, cfg ports.Cap
 		rest = " " + parts[1]
 	}
 
-	vtWrite.Write([]byte(cCol))
-	ptmx.Write([]byte(firstWord))
+	vtWrite.Write([]byte(cCol))   //nolint:errcheck // PTY write, best-effort
+	ptmx.Write([]byte(firstWord)) //nolint:errcheck // PTY write, best-effort
 	if rest != "" {
 		time.Sleep(20 * time.Millisecond)
-		vtWrite.Write([]byte(aCol))
-		ptmx.Write([]byte(rest))
+		vtWrite.Write([]byte(aCol)) //nolint:errcheck // PTY write, best-effort
+		ptmx.Write([]byte(rest))    //nolint:errcheck // PTY write, best-effort
 	}
 	time.Sleep(20 * time.Millisecond)
-	vtWrite.Write([]byte(rCol))
+	vtWrite.Write([]byte(rCol)) //nolint:errcheck // PTY write, best-effort
 }
 
-func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.CaptureConfig, width, height int) (string, error) {
+func runInPTY(ctx context.Context, commands []ports.CaptureCommand, cfg ports.CaptureConfig, width, height int) (string, error) {
 	shell, args := getDefaultShell()
 
 	ptmx, err := pty.New()
 	if err != nil {
 		return "", err
 	}
+	defer ptmx.Close() //nolint:errcheck // PTY cleanup
 
 	c := ptmx.Command(shell, args...)
 
 	if cmd, ok := any(c).(*exec.Cmd); ok {
-		cmd.Env = append(os.Environ(), "TERM=xterm-256color", "FORCE_COLOR=1")
+		cmd.Env = []string{
+			"HOME=" + os.Getenv("HOME"),
+			"USER=" + os.Getenv("USER"),
+			"TERM=xterm-256color",
+			"FORCE_COLOR=1",
+			"PATH=" + os.Getenv("PATH"),
+			"LANG=" + os.Getenv("LANG"),
+		}
 	}
 
 	if err := c.Start(); err != nil {
@@ -168,9 +179,13 @@ func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.Capt
 	if err != nil {
 		return "", err
 	}
-	defer emu.Close()
+	defer emu.Close() //nolint:errcheck // emulator cleanup
 
-	go io.Copy(vtWrite, ptmx)
+	copyDone := make(chan error, 1)
+	go func() {
+		_, copyErr := io.Copy(vtWrite, ptmx)
+		copyDone <- copyErr
+	}()
 
 	prompt := cfg.Prompt
 	if prompt == "" {
@@ -182,19 +197,22 @@ func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.Capt
 
 	if runtime.GOOS == "windows" {
 		styledPrompt := pCol + prompt + rCol
-		io.WriteString(ptmx, fmt.Sprintf("function prompt { \"%s\" }\r", styledPrompt))
-		io.WriteString(ptmx, "Clear-Host\r")
+		io.WriteString(ptmx, fmt.Sprintf("function prompt { \"%s\" }\r", styledPrompt)) //nolint:errcheck // PTY write
+		io.WriteString(ptmx, "Clear-Host\r")                                            //nolint:errcheck // PTY write
 	} else {
-		io.WriteString(ptmx, fmt.Sprintf("export PS1='\\[\\e[%sm\\]%s\\[\\e[0m\\]'\r", cfg.Colors["prompt"], prompt))
-		io.WriteString(ptmx, "clear\r")
+		io.WriteString(ptmx, fmt.Sprintf("export PS1='\\[\\e[%sm\\]%s\\[\\e[0m\\]'\r", cfg.Colors["prompt"], prompt)) //nolint:errcheck // PTY write
+		io.WriteString(ptmx, "clear\r")                                                                               //nolint:errcheck // PTY write
 	}
 
 	time.Sleep(500 * time.Millisecond)
 
-	io.WriteString(ptmx, "echo ---START---\r")
+	io.WriteString(ptmx, "echo ---START---\r") //nolint:errcheck // PTY write
 
 	anchorFound := false
 	for range 20 {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
 		frame := emu.GetScreen()
 		for _, row := range frame.Rows {
 			if strings.Contains(row, "---START---") {
@@ -209,39 +227,42 @@ func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.Capt
 	}
 
 	for _, cmd := range commands {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
 		switch cmd.Type {
 		case "Command":
 			typeColored(ptmx, vtWrite, cmd.Args, cfg)
-			io.WriteString(ptmx, "\r")
+			io.WriteString(ptmx, "\r") //nolint:errcheck // PTY write
 			time.Sleep(500 * time.Millisecond)
 		case "Type":
 			typeColored(ptmx, vtWrite, cmd.Args, cfg)
 			time.Sleep(100 * time.Millisecond)
 		case "Enter":
-			io.WriteString(ptmx, "\r")
+			io.WriteString(ptmx, "\r") //nolint:errcheck // PTY write
 			time.Sleep(500 * time.Millisecond)
 		case "Raw":
-			io.WriteString(ptmx, cmd.Args)
+			io.WriteString(ptmx, cmd.Args) //nolint:errcheck // PTY write
 			time.Sleep(100 * time.Millisecond)
 		case "Ctrl":
 			if len(cmd.Args) > 0 {
 				char := strings.ToLower(cmd.Args)[0]
 				if char >= 'a' && char <= 'z' {
 					ctrlChar := char - 'a' + 1
-					ptmx.Write([]byte{ctrlChar})
+					ptmx.Write([]byte{ctrlChar}) //nolint:errcheck // PTY write, best-effort
 				}
 			}
 			time.Sleep(500 * time.Millisecond)
 		case "Key":
 			switch strings.ToLower(cmd.Args) {
 			case "enter":
-				io.WriteString(ptmx, "\r")
+				io.WriteString(ptmx, "\r") //nolint:errcheck // PTY write
 			case "tab":
-				io.WriteString(ptmx, "\t")
+				io.WriteString(ptmx, "\t") //nolint:errcheck // PTY write
 			case "backspace":
-				io.WriteString(ptmx, "\x7f")
+				io.WriteString(ptmx, "\x7f") //nolint:errcheck // PTY write
 			case "escape", "esc":
-				io.WriteString(ptmx, "\x1b")
+				io.WriteString(ptmx, "\x1b") //nolint:errcheck // PTY write
 			}
 			time.Sleep(500 * time.Millisecond)
 		case "Sleep":
@@ -251,7 +272,10 @@ func runInPTY(_ context.Context, commands []ports.CaptureCommand, cfg ports.Capt
 
 	time.Sleep(1 * time.Second)
 	frame := emu.GetScreen()
-	ptmx.Close()
+	ptmx.Close() //nolint:errcheck // PTY cleanup before waiting for process
+
+	// Wait for the copy goroutine to finish
+	<-copyDone
 
 	done := make(chan struct{})
 	go func() {

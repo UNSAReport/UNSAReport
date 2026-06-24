@@ -2,6 +2,7 @@ package ports
 
 type CaptureConfig struct {
 	Columns     int               `json:"columns"`
+	Rows        int               `json:"rows,omitempty"`
 	FreezeFlags []string          `json:"freezeFlags"`
 	Prompt      string            `json:"prompt"`
 	Colors      map[string]string `json:"colors"`
