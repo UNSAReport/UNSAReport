@@ -17,6 +17,7 @@ import (
 
 var componentNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
+// ComponentService manages installing, removing, and updating Typst component dependencies.
 type ComponentService struct {
 	Fetcher  ports.TemplateFetcher
 	FS       ports.FileSystem
@@ -26,32 +27,40 @@ type ComponentService struct {
 	Stderr   io.Writer
 }
 
+// ComponentOption configures a ComponentService via functional options.
 type ComponentOption func(*ComponentService)
 
+// WithComponentFetcher sets the template fetcher for downloading component files.
 func WithComponentFetcher(f ports.TemplateFetcher) ComponentOption {
 	return func(s *ComponentService) { s.Fetcher = f }
 }
 
+// WithComponentFS sets the filesystem used for writing component files.
 func WithComponentFS(fs ports.FileSystem) ComponentOption {
 	return func(s *ComponentService) { s.FS = fs }
 }
 
+// WithComponentConfig sets the configuration store for reading and writing project config.
 func WithComponentConfig(c ports.ConfigStore) ComponentOption {
 	return func(s *ComponentService) { s.Config = c }
 }
 
+// WithComponentRegistry sets the component registry for resolving component versions.
 func WithComponentRegistry(r ports.ComponentRegistry) ComponentOption {
 	return func(s *ComponentService) { s.Registry = r }
 }
 
+// WithComponentStdout sets the writer for standard output messages.
 func WithComponentStdout(w io.Writer) ComponentOption {
 	return func(s *ComponentService) { s.Stdout = w }
 }
 
+// WithComponentStderr sets the writer for standard error messages.
 func WithComponentStderr(w io.Writer) ComponentOption {
 	return func(s *ComponentService) { s.Stderr = w }
 }
 
+// NewComponentService creates a ComponentService with the given functional options applied.
 func NewComponentService(opts ...ComponentOption) *ComponentService {
 	s := &ComponentService{}
 	for _, opt := range opts {
@@ -60,6 +69,7 @@ func NewComponentService(opts ...ComponentOption) *ComponentService {
 	return s
 }
 
+// ComponentInstallResult summarizes the outcome of installing a single component.
 type ComponentInstallResult struct {
 	Name            string
 	RangeSpec       string
@@ -67,6 +77,7 @@ type ComponentInstallResult struct {
 	Status          string
 }
 
+// Add installs a single component by name and version range, resolving and writing it to the components directory.
 func (s *ComponentService) Add(ctx context.Context, name, rangeSpec string, force bool) error {
 	resolvedVersion, info, cv, err := s.Registry.ResolveVersion(name, rangeSpec)
 	if err != nil {
@@ -75,6 +86,7 @@ func (s *ComponentService) Add(ctx context.Context, name, rangeSpec string, forc
 	return s.addResolved(ctx, name, force, resolvedVersion, info, cv)
 }
 
+// AddFromManifest installs multiple components declared in a manifest, including transitive dependencies.
 func (s *ComponentService) AddFromManifest(ctx context.Context, components map[string]string) ([]ComponentInstallResult, error) {
 	var results []ComponentInstallResult
 	visited := make(map[string]bool)
@@ -237,6 +249,7 @@ func (s *ComponentService) addResolved(ctx context.Context, name string, force b
 	return nil
 }
 
+// Remove uninstalls a component by deleting its file and removing it from the lockfile and config.
 func (s *ComponentService) Remove(ctx context.Context, name string) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {
@@ -279,6 +292,7 @@ func (s *ComponentService) Remove(ctx context.Context, name string) error {
 	return nil
 }
 
+// List prints all available components from the registry alongside their installed version, if any.
 func (s *ComponentService) List(ctx context.Context) error {
 	components, err := s.Registry.ListComponents()
 	if err != nil {
@@ -322,6 +336,7 @@ func (s *ComponentService) List(ctx context.Context) error {
 	return nil
 }
 
+// Update updates a specific component or all installed components to their latest compatible version.
 func (s *ComponentService) Update(ctx context.Context, name string) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {

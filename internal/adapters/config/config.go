@@ -12,12 +12,15 @@ import (
 
 var _ ports.ConfigStore = (*Adapter)(nil)
 
+// Adapter implements ports.ConfigStore for reading and writing unsareport.json on the local filesystem.
 type Adapter struct{}
 
+// New returns a new Adapter for config file operations.
 func New() *Adapter {
 	return &Adapter{}
 }
 
+// FindProjectRoot walks up from startDir looking for unsareport.json and returns the first directory that contains it.
 func (a *Adapter) FindProjectRoot(startDir string) (string, ports.UnsareportConfig, bool, error) {
 	currentDir := startDir
 	for {
@@ -34,6 +37,7 @@ func (a *Adapter) FindProjectRoot(startDir string) (string, ports.UnsareportConf
 	return startDir, ports.UnsareportConfig{}, false, nil
 }
 
+// ReadConfig reads and validates unsareport.json from destDir, applying default values for missing fields.
 func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, error) {
 	path := filepath.Join(destDir, "unsareport.json")
 	var cfg ports.UnsareportConfig
@@ -94,6 +98,7 @@ func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, erro
 	return cfg, found, nil
 }
 
+// WriteConfig marshals cfg to JSON and writes it to unsareport.json in destDir, stamping the schema URL.
 func (a *Adapter) WriteConfig(destDir string, cfg ports.UnsareportConfig) error {
 	path := filepath.Join(destDir, "unsareport.json")
 

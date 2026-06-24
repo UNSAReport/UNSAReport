@@ -13,21 +13,26 @@ import (
 
 var _ ports.FileSystem = (*Adapter)(nil)
 
+// Adapter implements ports.FileSystem using the OS filesystem directly.
 type Adapter struct{}
 
+// New returns a new Adapter for OS filesystem operations.
 func New() *Adapter {
 	return &Adapter{}
 }
 
+// EnsureDir creates the directory at path and any necessary parents with 0o755 permissions.
 func (a *Adapter) EnsureDir(path string) error {
 	return os.MkdirAll(path, 0o755)
 }
 
+// FileExists reports whether a file or directory exists at path.
 func (a *Adapter) FileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
 
+// ReadFile returns the contents of the file at path.
 func (a *Adapter) ReadFile(path string) ([]byte, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -36,6 +41,7 @@ func (a *Adapter) ReadFile(path string) ([]byte, error) {
 	return data, nil
 }
 
+// WriteFileAtomic writes data to a temporary file and atomically renames it to path to avoid partial writes.
 func (a *Adapter) WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := a.EnsureDir(dir); err != nil {
@@ -70,6 +76,7 @@ func (a *Adapter) WriteFileAtomic(path string, data []byte, perm os.FileMode) er
 	return nil
 }
 
+// CopyFile copies the file at src to dst with the given permissions, creating parent directories as needed.
 func (a *Adapter) CopyFile(src string, dst string, perm os.FileMode) error {
 	if err := a.EnsureDir(filepath.Dir(dst)); err != nil {
 		return err
@@ -98,28 +105,34 @@ func (a *Adapter) CopyFile(src string, dst string, perm os.FileMode) error {
 	return out.Close()
 }
 
+// SameContent reports whether b1 and b2 have the same SHA-256 hash.
 func (a *Adapter) SameContent(b1, b2 []byte) bool {
 	h1 := sha256.Sum256(b1)
 	h2 := sha256.Sum256(b2)
 	return h1 == h2
 }
 
+// ReadDir returns the directory entries for dirname.
 func (a *Adapter) ReadDir(dirname string) ([]os.DirEntry, error) {
 	return os.ReadDir(dirname)
 }
 
+// Chdir changes the current working directory to dir.
 func (a *Adapter) Chdir(dir string) error {
 	return os.Chdir(dir)
 }
 
+// Getwd returns the current working directory.
 func (a *Adapter) Getwd() (string, error) {
 	return os.Getwd()
 }
 
+// Remove deletes the file or empty directory at path.
 func (a *Adapter) Remove(path string) error {
 	return os.Remove(path)
 }
 
+// Stat returns file info for the named path.
 func (a *Adapter) Stat(name string) (os.FileInfo, error) {
 	return os.Stat(name)
 }

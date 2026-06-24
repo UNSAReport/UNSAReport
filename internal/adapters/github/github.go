@@ -27,12 +27,15 @@ const (
 
 var httpClient = &http.Client{Timeout: httpTimeout}
 
+// Adapter implements ports.TemplateFetcher by downloading templates from GitHub repositories.
 type Adapter struct{}
 
+// New returns a new Adapter for GitHub template fetching.
 func New() *Adapter {
 	return &Adapter{}
 }
 
+// Fetch downloads a template directory from a GitHub repository as a zip archive and returns its files keyed by relative path.
 func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (map[string][]byte, error) {
 	parts := strings.Split(repo, "/")
 	validRepo := len(parts) == 2 && parts[0] != "" && parts[1] != ""
@@ -105,6 +108,7 @@ func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (ma
 	return out, nil
 }
 
+// LoadLocal reads all files under dir and returns them as a map keyed by slash-separated relative paths.
 func (a *Adapter) LoadLocal(dir string) (map[string][]byte, error) {
 	out := make(map[string][]byte)
 	abs, err := filepath.Abs(dir)
@@ -150,6 +154,7 @@ func (a *Adapter) LoadLocal(dir string) (map[string][]byte, error) {
 	return clean, nil
 }
 
+// FetchRaw downloads a single raw file from a GitHub repository at the given ref.
 func (a *Adapter) FetchRaw(ctx context.Context, repo, ref, path string) ([]byte, error) {
 	parts := strings.Split(repo, "/")
 	validRepo := len(parts) == 2 && parts[0] != "" && parts[1] != ""

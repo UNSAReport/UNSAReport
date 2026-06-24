@@ -42,6 +42,8 @@ func setupCLI() {
 	}
 }
 
+// Execute is the main entry point that sets up the CLI and runs the root command,
+// printing errors and exiting with code 1 on failure.
 func Execute() {
 	cliOnce.Do(setupCLI)
 

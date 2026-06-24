@@ -6,6 +6,7 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
+// UnifiedLineDiff computes a unified line-level diff between two text strings.
 func UnifiedLineDiff(oldText, newText string) string {
 	dmp := diffmatchpatch.New()
 	a, b, lines := dmp.DiffLinesToChars(oldText, newText)

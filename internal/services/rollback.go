@@ -15,17 +15,20 @@ import (
 
 const backupDir = ".unsarep-backup"
 
+// BackupManifest records metadata about a backup of template files before an update.
 type BackupManifest struct {
 	Timestamp       string                `json:"timestamp"`
 	TemplateVersion string                `json:"template_version"`
 	Files           []BackupManifestEntry `json:"files"`
 }
 
+// BackupManifestEntry maps a backed-up file to its original path in the project.
 type BackupManifestEntry struct {
 	RelativePath string `json:"relative_path"`
 	OriginalPath string `json:"original_path"`
 }
 
+// RollbackService manages creating backups before template updates and restoring them on failure.
 type RollbackService struct {
 	FS     ports.FileSystem
 	Config ports.ConfigStore
@@ -33,10 +36,12 @@ type RollbackService struct {
 	Stderr io.Writer
 }
 
+// NewRollbackService creates a RollbackService with the given dependencies.
 func NewRollbackService(fs ports.FileSystem, cfg ports.ConfigStore, stdout, stderr io.Writer) *RollbackService {
 	return &RollbackService{FS: fs, Config: cfg, Stdout: stdout, Stderr: stderr}
 }
 
+// CreateBackup saves copies of the specified files into a local backup directory with a manifest.
 func (s *RollbackService) CreateBackup(destDir string, entries []Entry, cfg ports.UnsareportConfig) error {
 	backupPath := filepath.Join(destDir, backupDir)
 
@@ -97,6 +102,7 @@ func (s *RollbackService) CreateBackup(destDir string, entries []Entry, cfg port
 	return nil
 }
 
+// Rollback restores files from the most recent backup and removes the backup directory.
 func (s *RollbackService) Rollback(destDir string) error {
 	backupPath := filepath.Join(destDir, backupDir)
 	manifestPath := filepath.Join(backupPath, "manifest.json")
@@ -150,6 +156,7 @@ func (s *RollbackService) Rollback(destDir string) error {
 	return nil
 }
 
+// HasBackup reports whether a backup manifest exists in the given directory.
 func (s *RollbackService) HasBackup(destDir string) bool {
 	manifestPath := filepath.Join(destDir, backupDir, "manifest.json")
 	return s.FS.FileExists(manifestPath)

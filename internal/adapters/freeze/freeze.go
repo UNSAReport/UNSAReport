@@ -22,12 +22,15 @@ import (
 
 var _ ports.Renderer = (*Adapter)(nil)
 
+// Adapter implements ports.Renderer by capturing terminal sessions in a PTY and converting them to images via freeze and ImageMagick.
 type Adapter struct{}
 
+// New returns a new Adapter for terminal capture rendering.
 func New() *Adapter {
 	return &Adapter{}
 }
 
+// Render replays commands in a PTY, captures the terminal output, and produces an image file at resultPath.
 func (a *Adapter) Render(ctx context.Context, resultPath string, commands []ports.CaptureCommand, flags []string, cfg ports.CaptureConfig) (string, error) {
 	if err := dependencies.Check(dependencies.Freeze); err != nil {
 		return "", err

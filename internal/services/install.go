@@ -13,6 +13,7 @@ import (
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
+// InstallOptions holds the parameters for a single template installation.
 type InstallOptions struct {
 	Dest     string
 	Session  string
@@ -20,6 +21,7 @@ type InstallOptions struct {
 	Local    string
 }
 
+// InstallService manages downloading and scaffolding a template into a project directory.
 type InstallService struct {
 	Fetcher          ports.TemplateFetcher
 	FS               ports.FileSystem
@@ -30,36 +32,45 @@ type InstallService struct {
 	Stderr           io.Writer
 }
 
+// InstallOption configures an InstallService via functional options.
 type InstallOption func(*InstallService)
 
+// WithInstallFetcher sets the template fetcher used to download template files.
 func WithInstallFetcher(f ports.TemplateFetcher) InstallOption {
 	return func(s *InstallService) { s.Fetcher = f }
 }
 
+// WithInstallFS sets the filesystem used for writing template files to disk.
 func WithInstallFS(fs ports.FileSystem) InstallOption {
 	return func(s *InstallService) { s.FS = fs }
 }
 
+// WithInstallConfig sets the configuration store for reading and writing project config.
 func WithInstallConfig(c ports.ConfigStore) InstallOption {
 	return func(s *InstallService) { s.Config = c }
 }
 
+// WithInstallRegistry sets the template registry for resolving template versions.
 func WithInstallRegistry(r ports.TemplateRegistry) InstallOption {
 	return func(s *InstallService) { s.Registry = r }
 }
 
+// WithInstallComponentService sets the component service for installing template dependencies.
 func WithInstallComponentService(cs *ComponentService) InstallOption {
 	return func(s *InstallService) { s.ComponentService = cs }
 }
 
+// WithInstallStdout sets the writer for standard output messages.
 func WithInstallStdout(w io.Writer) InstallOption {
 	return func(s *InstallService) { s.Stdout = w }
 }
 
+// WithInstallStderr sets the writer for standard error messages.
 func WithInstallStderr(w io.Writer) InstallOption {
 	return func(s *InstallService) { s.Stderr = w }
 }
 
+// NewInstallService creates an InstallService with the given functional options applied.
 func NewInstallService(opts ...InstallOption) *InstallService {
 	s := &InstallService{}
 	for _, opt := range opts {
@@ -68,6 +79,7 @@ func NewInstallService(opts ...InstallOption) *InstallService {
 	return s
 }
 
+// Execute runs the full template installation: fetches files, writes them to disk, and installs components.
 func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error {
 	destDir := opt.Dest
 	if destDir == "" {

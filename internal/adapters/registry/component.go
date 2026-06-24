@@ -27,10 +27,12 @@ type registryVersionEntry struct {
 
 var _ ports.ComponentRegistry = (*ComponentRegistryAdapter)(nil)
 
+// ComponentRegistryAdapter implements ports.ComponentRegistry by fetching component metadata from a remote GitHub repository.
 type ComponentRegistryAdapter struct {
 	fetcher ports.TemplateFetcher
 }
 
+// NewComponentRegistry creates a ComponentRegistryAdapter that uses fetcher to retrieve component data from GitHub.
 func NewComponentRegistry(fetcher ports.TemplateFetcher) *ComponentRegistryAdapter {
 	return &ComponentRegistryAdapter{
 		fetcher: fetcher,
@@ -82,6 +84,7 @@ func (a *ComponentRegistryAdapter) convertComponent(name string, entry registryC
 	}
 }
 
+// ListComponents fetches the remote component registry and returns all available components.
 func (a *ComponentRegistryAdapter) ListComponents() ([]ports.ComponentInfo, error) {
 	reg, err := a.fetchRegistry()
 	if err != nil {
@@ -96,6 +99,7 @@ func (a *ComponentRegistryAdapter) ListComponents() ([]ports.ComponentInfo, erro
 	return components, nil
 }
 
+// GetComponent fetches the remote component registry and returns metadata for the named component.
 func (a *ComponentRegistryAdapter) GetComponent(name string) (ports.ComponentInfo, error) {
 	reg, err := a.fetchRegistry()
 	if err != nil {
@@ -110,6 +114,7 @@ func (a *ComponentRegistryAdapter) GetComponent(name string) (ports.ComponentInf
 	return a.convertComponent(name, entry), nil
 }
 
+// ResolveVersion resolves rangeSpec against the component's dist-tags and versions, returning the matched version and metadata.
 func (a *ComponentRegistryAdapter) ResolveVersion(name string, rangeSpec string) (*semver.Version, *ports.ComponentInfo, *ports.ComponentVersion, error) {
 	info, err := a.GetComponent(name)
 	if err != nil {
@@ -135,6 +140,7 @@ func (a *ComponentRegistryAdapter) ResolveVersion(name string, rangeSpec string)
 	return resolved, &info, cv, nil
 }
 
+// FetchComponentFile downloads the file at the path specified by cv from the component's remote repository.
 func (a *ComponentRegistryAdapter) FetchComponentFile(info ports.ComponentInfo, cv *ports.ComponentVersion) ([]byte, error) {
 	ctx := context.Background()
 	return a.fetcher.FetchRaw(ctx, ports.DefaultComponentRepo, ports.DefaultRef, cv.Path)

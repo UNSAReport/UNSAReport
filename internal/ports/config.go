@@ -1,5 +1,6 @@
 package ports
 
+// CaptureConfig defines terminal capture parameters such as dimensions, freeze regions, and color scheme.
 type CaptureConfig struct {
 	Columns     int               `json:"columns"`
 	Rows        int               `json:"rows,omitempty"`
@@ -8,11 +9,13 @@ type CaptureConfig struct {
 	Colors      map[string]string `json:"colors"`
 }
 
+// PrepareInputConfig specifies the source directory and report file used as input for report preparation.
 type PrepareInputConfig struct {
 	SrcDir     string `json:"srcDir"`
 	ReportFile string `json:"reportFile"`
 }
 
+// PrepareOutputConfig specifies the submission directory and naming conventions for prepared output files.
 type PrepareOutputConfig struct {
 	SubmissionDir string `json:"submissionDir"`
 	FileTemplate  string `json:"fileTemplate"`
@@ -20,11 +23,13 @@ type PrepareOutputConfig struct {
 	CodeWord      string `json:"codeWord"`
 }
 
+// PrepareConfig groups input and output configuration for the report preparation workflow.
 type PrepareConfig struct {
 	Input  PrepareInputConfig  `json:"input"`
 	Output PrepareOutputConfig `json:"output"`
 }
 
+// UnsareportConfig represents the full project configuration including template, capture, preparation, and component settings.
 type UnsareportConfig struct {
 	Schema          string                          `json:"$schema,omitempty"`
 	Template        string                          `json:"template"`
@@ -37,6 +42,7 @@ type UnsareportConfig struct {
 	Components      map[string]ComponentConfigEntry `json:"components,omitempty"`
 }
 
+// ConfigStore abstracts reading and writing the project configuration and lockfile.
 type ConfigStore interface {
 	FindProjectRoot(startDir string) (projectRoot string, cfg UnsareportConfig, ok bool, err error)
 	ReadConfig(destDir string) (cfg UnsareportConfig, ok bool, err error)

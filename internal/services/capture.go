@@ -12,6 +12,7 @@ import (
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
+// CaptureService orchestrates terminal session rendering into static images.
 type CaptureService struct {
 	Renderer ports.Renderer
 	FS       ports.FileSystem
@@ -20,28 +21,35 @@ type CaptureService struct {
 	Stderr   io.Writer
 }
 
+// CaptureOption configures a CaptureService via functional options.
 type CaptureOption func(*CaptureService)
 
+// WithCaptureRenderer sets the renderer used to produce capture images.
 func WithCaptureRenderer(r ports.Renderer) CaptureOption {
 	return func(s *CaptureService) { s.Renderer = r }
 }
 
+// WithCaptureFS sets the filesystem used for file operations during capture.
 func WithCaptureFS(fs ports.FileSystem) CaptureOption {
 	return func(s *CaptureService) { s.FS = fs }
 }
 
+// WithCaptureConfig sets the configuration store for reading project settings.
 func WithCaptureConfig(c ports.ConfigStore) CaptureOption {
 	return func(s *CaptureService) { s.Config = c }
 }
 
+// WithCaptureStdout sets the writer for standard output messages.
 func WithCaptureStdout(w io.Writer) CaptureOption {
 	return func(s *CaptureService) { s.Stdout = w }
 }
 
+// WithCaptureStderr sets the writer for standard error messages.
 func WithCaptureStderr(w io.Writer) CaptureOption {
 	return func(s *CaptureService) { s.Stderr = w }
 }
 
+// NewCaptureService creates a CaptureService with the given functional options applied.
 func NewCaptureService(opts ...CaptureOption) *CaptureService {
 	s := &CaptureService{}
 	for _, opt := range opts {
@@ -50,6 +58,7 @@ func NewCaptureService(opts ...CaptureOption) *CaptureService {
 	return s
 }
 
+// CaptureOptions holds the parameters for a single capture execution.
 type CaptureOptions struct {
 	Cwd             string
 	Args            []string
@@ -57,6 +66,7 @@ type CaptureOptions struct {
 	SaveFreezeFlags bool
 }
 
+// Execute runs the capture pipeline: parses instructions, renders them via the terminal, and writes the resulting image.
 func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {

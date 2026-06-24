@@ -17,10 +17,12 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
+// PrepareOptions holds the parameters for a single prepare execution.
 type PrepareOptions struct {
 	Configure bool
 }
 
+// PrepareService compiles a Typst report into PDF and archives source code for submission.
 type PrepareService struct {
 	Compiler ports.Compiler
 	Archiver ports.Archiver
@@ -30,32 +32,40 @@ type PrepareService struct {
 	Stderr   io.Writer
 }
 
+// PrepareOption configures a PrepareService via functional options.
 type PrepareOption func(*PrepareService)
 
+// WithPrepareCompiler sets the typst compiler used to render the report.
 func WithPrepareCompiler(c ports.Compiler) PrepareOption {
 	return func(s *PrepareService) { s.Compiler = c }
 }
 
+// WithPrepareArchiver sets the archiver used to create the source code zip.
 func WithPrepareArchiver(a ports.Archiver) PrepareOption {
 	return func(s *PrepareService) { s.Archiver = a }
 }
 
+// WithPrepareFS sets the filesystem used for file operations during prepare.
 func WithPrepareFS(fs ports.FileSystem) PrepareOption {
 	return func(s *PrepareService) { s.FS = fs }
 }
 
+// WithPrepareConfig sets the configuration store for reading project settings.
 func WithPrepareConfig(cfg ports.ConfigStore) PrepareOption {
 	return func(s *PrepareService) { s.Config = cfg }
 }
 
+// WithPrepareStdout sets the writer for standard output messages.
 func WithPrepareStdout(w io.Writer) PrepareOption {
 	return func(s *PrepareService) { s.Stdout = w }
 }
 
+// WithPrepareStderr sets the writer for standard error messages.
 func WithPrepareStderr(w io.Writer) PrepareOption {
 	return func(s *PrepareService) { s.Stderr = w }
 }
 
+// NewPrepareService creates a PrepareService with the given functional options applied.
 func NewPrepareService(opts ...PrepareOption) *PrepareService {
 	s := &PrepareService{}
 	for _, opt := range opts {
@@ -71,6 +81,7 @@ type prepareContext struct {
 	labDir      string
 }
 
+// Execute compiles the report to PDF, archives the source directory, and places both in the submission folder.
 func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDirArg string) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {

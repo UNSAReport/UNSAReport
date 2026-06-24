@@ -15,14 +15,18 @@ import (
 
 var _ ports.Archiver = (*Adapter)(nil)
 
+// ErrSourceMissing is returned when the source directory for an archive operation does not exist.
 var ErrSourceMissing = errors.New("source directory not found")
 
+// Adapter implements ports.Archiver by creating zip archives from directories or file lists.
 type Adapter struct{}
 
+// New returns a new Adapter for zip archive creation.
 func New() *Adapter {
 	return &Adapter{}
 }
 
+// ArchiveDir walks srcDir and creates a zip archive at zipPath containing all files in the directory tree.
 func (a *Adapter) ArchiveDir(zipPath, srcDir string) error {
 	st, err := os.Stat(srcDir)
 	if err != nil {
@@ -57,6 +61,7 @@ func (a *Adapter) ArchiveDir(zipPath, srcDir string) error {
 	return a.ArchiveFiles(zipPath, srcDir, files)
 }
 
+// ArchiveFiles creates a zip archive at zipPath containing the specified files relative to baseDir.
 func (a *Adapter) ArchiveFiles(zipPath, baseDir string, files []string) error {
 	if err := os.MkdirAll(filepath.Dir(zipPath), 0o755); err != nil {
 		return fmt.Errorf("mkdir for zip: %w", err)

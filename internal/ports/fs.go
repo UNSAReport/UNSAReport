@@ -4,6 +4,7 @@ import (
 	"os"
 )
 
+// FileSystem abstracts filesystem operations to enable testing and alternative implementations.
 type FileSystem interface {
 	EnsureDir(path string) error
 	FileExists(path string) bool

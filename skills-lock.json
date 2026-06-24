@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "golang-documentation": {
+      "source": "samber/cc-skills-golang",
+      "sourceType": "github",
+      "skillPath": "skills/golang-documentation/SKILL.md",
+      "computedHash": "8118a4dda5a30efcb60037520451b860c16c9f7f7e83e109476e155786f9e996"
+    },
     "golang-patterns": {
       "source": "affaan-m/everything-claude-code",
       "sourceType": "autoskills-registry",

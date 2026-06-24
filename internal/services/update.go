@@ -17,6 +17,7 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
+// UpdateOptions holds the parameters for a single template update execution.
 type UpdateOptions struct {
 	Dest     string
 	Force    bool
@@ -25,6 +26,7 @@ type UpdateOptions struct {
 	Rollback bool
 }
 
+// UpdateService manages checking for and applying template updates with interactive conflict resolution.
 type UpdateService struct {
 	Fetcher          ports.TemplateFetcher
 	FS               ports.FileSystem
@@ -35,36 +37,45 @@ type UpdateService struct {
 	Stderr           io.Writer
 }
 
+// UpdateOption configures an UpdateService via functional options.
 type UpdateOption func(*UpdateService)
 
+// WithUpdateFetcher sets the template fetcher used to download updated template files.
 func WithUpdateFetcher(f ports.TemplateFetcher) UpdateOption {
 	return func(s *UpdateService) { s.Fetcher = f }
 }
 
+// WithUpdateFS sets the filesystem used for reading and writing template files.
 func WithUpdateFS(fs ports.FileSystem) UpdateOption {
 	return func(s *UpdateService) { s.FS = fs }
 }
 
+// WithUpdateConfig sets the configuration store for reading and writing project config.
 func WithUpdateConfig(c ports.ConfigStore) UpdateOption {
 	return func(s *UpdateService) { s.Config = c }
 }
 
+// WithUpdateRegistry sets the template registry for resolving template versions.
 func WithUpdateRegistry(r ports.TemplateRegistry) UpdateOption {
 	return func(s *UpdateService) { s.Registry = r }
 }
 
+// WithUpdateComponentService sets the component service for syncing template dependencies.
 func WithUpdateComponentService(cs *ComponentService) UpdateOption {
 	return func(s *UpdateService) { s.ComponentService = cs }
 }
 
+// WithUpdateStdout sets the writer for standard output messages.
 func WithUpdateStdout(w io.Writer) UpdateOption {
 	return func(s *UpdateService) { s.Stdout = w }
 }
 
+// WithUpdateStderr sets the writer for standard error messages.
 func WithUpdateStderr(w io.Writer) UpdateOption {
 	return func(s *UpdateService) { s.Stderr = w }
 }
 
+// NewUpdateService creates an UpdateService with the given functional options applied.
 func NewUpdateService(opts ...UpdateOption) *UpdateService {
 	s := &UpdateService{}
 	for _, opt := range opts {
@@ -84,6 +95,7 @@ const (
 
 var imageExt = regexp.MustCompile(`(?i)\.(png|jpe?g|gif|svg|webp|ico)$`)
 
+// Execute runs the template update: compares remote files with local copies and prompts for each change.
 func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	destDir := opt.Dest
 	if destDir == "" {
