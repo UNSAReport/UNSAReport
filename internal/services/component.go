@@ -15,6 +15,8 @@ import (
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
+var componentNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
 type ComponentService struct {
 	Fetcher  ports.TemplateFetcher
 	FS       ports.FileSystem
@@ -24,15 +26,38 @@ type ComponentService struct {
 	Stderr   io.Writer
 }
 
-func NewComponentService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.ComponentRegistry, stdout, stderr io.Writer) *ComponentService {
-	return &ComponentService{
-		Fetcher:  f,
-		FS:       fs,
-		Config:   c,
-		Registry: r,
-		Stdout:   stdout,
-		Stderr:   stderr,
+type ComponentOption func(*ComponentService)
+
+func WithComponentFetcher(f ports.TemplateFetcher) ComponentOption {
+	return func(s *ComponentService) { s.Fetcher = f }
+}
+
+func WithComponentFS(fs ports.FileSystem) ComponentOption {
+	return func(s *ComponentService) { s.FS = fs }
+}
+
+func WithComponentConfig(c ports.ConfigStore) ComponentOption {
+	return func(s *ComponentService) { s.Config = c }
+}
+
+func WithComponentRegistry(r ports.ComponentRegistry) ComponentOption {
+	return func(s *ComponentService) { s.Registry = r }
+}
+
+func WithComponentStdout(w io.Writer) ComponentOption {
+	return func(s *ComponentService) { s.Stdout = w }
+}
+
+func WithComponentStderr(w io.Writer) ComponentOption {
+	return func(s *ComponentService) { s.Stderr = w }
+}
+
+func NewComponentService(opts ...ComponentOption) *ComponentService {
+	s := &ComponentService{}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
 type ComponentInstallResult struct {
@@ -114,7 +139,6 @@ func (s *ComponentService) addResolved(ctx context.Context, name string, force b
 		return fmt.Errorf("unsareport.json not found. Are you in a project directory?")
 	}
 
-	var componentNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 	if !componentNameRegex.MatchString(name) {
 		return fmt.Errorf("invalid component name %q: must contain only alphanumeric characters, underscores, or dashes", name)
 	}

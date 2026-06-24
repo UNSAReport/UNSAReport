@@ -30,16 +30,42 @@ type InstallService struct {
 	Stderr           io.Writer
 }
 
-func NewInstallService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry, cs *ComponentService, stdout, stderr io.Writer) *InstallService {
-	return &InstallService{
-		Fetcher:          f,
-		FS:               fs,
-		Config:           c,
-		Registry:         r,
-		ComponentService: cs,
-		Stdout:           stdout,
-		Stderr:           stderr,
+type InstallOption func(*InstallService)
+
+func WithInstallFetcher(f ports.TemplateFetcher) InstallOption {
+	return func(s *InstallService) { s.Fetcher = f }
+}
+
+func WithInstallFS(fs ports.FileSystem) InstallOption {
+	return func(s *InstallService) { s.FS = fs }
+}
+
+func WithInstallConfig(c ports.ConfigStore) InstallOption {
+	return func(s *InstallService) { s.Config = c }
+}
+
+func WithInstallRegistry(r ports.TemplateRegistry) InstallOption {
+	return func(s *InstallService) { s.Registry = r }
+}
+
+func WithInstallComponentService(cs *ComponentService) InstallOption {
+	return func(s *InstallService) { s.ComponentService = cs }
+}
+
+func WithInstallStdout(w io.Writer) InstallOption {
+	return func(s *InstallService) { s.Stdout = w }
+}
+
+func WithInstallStderr(w io.Writer) InstallOption {
+	return func(s *InstallService) { s.Stderr = w }
+}
+
+func NewInstallService(opts ...InstallOption) *InstallService {
+	s := &InstallService{}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
 func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error {

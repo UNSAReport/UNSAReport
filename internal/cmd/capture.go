@@ -60,7 +60,13 @@ the capture_logs/ directory as a .log file.`,
 				}
 			}
 
-			svc := services.NewCaptureService(renderer, fs, cfg, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			svc := services.NewCaptureService(
+				services.WithCaptureRenderer(renderer),
+				services.WithCaptureFS(fs),
+				services.WithCaptureConfig(cfg),
+				services.WithCaptureStdout(cmd.OutOrStdout()),
+				services.WithCaptureStderr(cmd.ErrOrStderr()),
+			)
 			return svc.Execute(cmd.Context(), services.CaptureOptions{
 				Cwd:             cwdFlag,
 				Args:            args,

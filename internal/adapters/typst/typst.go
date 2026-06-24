@@ -10,7 +10,10 @@ import (
 	"strings"
 
 	"github.com/UNSAReport/UNSAReport/internal/dependencies"
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
+
+var _ ports.Compiler = (*Adapter)(nil)
 
 type Adapter struct{}
 

@@ -30,15 +30,38 @@ type PrepareService struct {
 	Stderr   io.Writer
 }
 
-func NewPrepareService(c ports.Compiler, a ports.Archiver, fs ports.FileSystem, cfg ports.ConfigStore, stdout, stderr io.Writer) *PrepareService {
-	return &PrepareService{
-		Compiler: c,
-		Archiver: a,
-		FS:       fs,
-		Config:   cfg,
-		Stdout:   stdout,
-		Stderr:   stderr,
+type PrepareOption func(*PrepareService)
+
+func WithPrepareCompiler(c ports.Compiler) PrepareOption {
+	return func(s *PrepareService) { s.Compiler = c }
+}
+
+func WithPrepareArchiver(a ports.Archiver) PrepareOption {
+	return func(s *PrepareService) { s.Archiver = a }
+}
+
+func WithPrepareFS(fs ports.FileSystem) PrepareOption {
+	return func(s *PrepareService) { s.FS = fs }
+}
+
+func WithPrepareConfig(cfg ports.ConfigStore) PrepareOption {
+	return func(s *PrepareService) { s.Config = cfg }
+}
+
+func WithPrepareStdout(w io.Writer) PrepareOption {
+	return func(s *PrepareService) { s.Stdout = w }
+}
+
+func WithPrepareStderr(w io.Writer) PrepareOption {
+	return func(s *PrepareService) { s.Stderr = w }
+}
+
+func NewPrepareService(opts ...PrepareOption) *PrepareService {
+	s := &PrepareService{}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
 type prepareContext struct {
@@ -87,13 +110,13 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 		}
 	}
 
-	reportWord := pctx.cfg.Prepare.Output.ReportWord
-	if reportWord == "" {
-		reportWord = "Informe"
+	reportWord := "Informe"
+	if pctx.cfg.Prepare.Output.ReportWord != "" {
+		reportWord = pctx.cfg.Prepare.Output.ReportWord
 	}
-	codeWord := pctx.cfg.Prepare.Output.CodeWord
-	if codeWord == "" {
-		codeWord = "Código Fuente"
+	codeWord := "Código Fuente"
+	if pctx.cfg.Prepare.Output.CodeWord != "" {
+		codeWord = pctx.cfg.Prepare.Output.CodeWord
 	}
 
 	generatedReportName := ApplyTemplate(pctx.cfg.Prepare.Output.FileTemplate, vars, reportWord)
@@ -102,10 +125,9 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 		return fmt.Errorf("write message: %w", err)
 	}
 	inputs := map[string]string{"title": generatedReportName}
+	inputs["unsarep-root"] = "/"
 	if pctx.isMulti {
 		inputs["unsarep-root"] = "/" + pctx.labDir + "/"
-	} else {
-		inputs["unsarep-root"] = "/"
 	}
 	if err := s.Compiler.Compile(ctx, reportPath, reportPDF, inputs); err != nil {
 		return fmt.Errorf("compile report: %w", err)
@@ -143,14 +165,15 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 		if err := s.Archiver.ArchiveFiles(zipPath, srcDir, files); err != nil {
 			return fmt.Errorf("archive files: %w", err)
 		}
-	} else {
-		if err := s.Archiver.ArchiveDir(zipPath, srcDir); err != nil {
-			if errors.Is(err, zipper.ErrSourceMissing) {
-				slog.Warn("source directory not found, skipping zip generation", "dir", srcDir)
-			} else {
-				return fmt.Errorf("archive dir: %w", err)
-			}
+		return nil
+	}
+
+	if err := s.Archiver.ArchiveDir(zipPath, srcDir); err != nil {
+		if errors.Is(err, zipper.ErrSourceMissing) {
+			slog.Warn("source directory not found, skipping zip generation", "dir", srcDir)
+			return nil
 		}
+		return fmt.Errorf("archive dir: %w", err)
 	}
 
 	if _, err := fmt.Fprintf(s.Stdout, "\nReport: %s\n", filepath.Join(submissionDir, reportFile)); err != nil {
@@ -178,7 +201,7 @@ func (s *PrepareService) listGitFiles(ctx context.Context, srcDir string) ([]str
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	var files []string
+	files := make([]string, 0, len(lines))
 	for _, line := range lines {
 		if line == "" {
 			continue
@@ -245,18 +268,18 @@ func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareCo
 }
 
 func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[string]string) error {
-	reportWord := pctx.cfg.Prepare.Output.ReportWord
-	if reportWord == "" {
-		reportWord = "Informe"
+	reportWord := "Informe"
+	if pctx.cfg.Prepare.Output.ReportWord != "" {
+		reportWord = pctx.cfg.Prepare.Output.ReportWord
 	}
-	codeWord := pctx.cfg.Prepare.Output.CodeWord
-	if codeWord == "" {
-		codeWord = "Código Fuente"
+	codeWord := "Código Fuente"
+	if pctx.cfg.Prepare.Output.CodeWord != "" {
+		codeWord = pctx.cfg.Prepare.Output.CodeWord
 	}
 
-	input := pctx.cfg.Prepare.Output.FileTemplate
-	if input == "" {
-		input = "{output_type}_{lab_number}"
+	input := "{output_type}_{lab_number}"
+	if pctx.cfg.Prepare.Output.FileTemplate != "" {
+		input = pctx.cfg.Prepare.Output.FileTemplate
 	}
 
 	for {

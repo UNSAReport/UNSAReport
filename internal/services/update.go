@@ -35,16 +35,42 @@ type UpdateService struct {
 	Stderr           io.Writer
 }
 
-func NewUpdateService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry, cs *ComponentService, stdout, stderr io.Writer) *UpdateService {
-	return &UpdateService{
-		Fetcher:          f,
-		FS:               fs,
-		Config:           c,
-		Registry:         r,
-		ComponentService: cs,
-		Stdout:           stdout,
-		Stderr:           stderr,
+type UpdateOption func(*UpdateService)
+
+func WithUpdateFetcher(f ports.TemplateFetcher) UpdateOption {
+	return func(s *UpdateService) { s.Fetcher = f }
+}
+
+func WithUpdateFS(fs ports.FileSystem) UpdateOption {
+	return func(s *UpdateService) { s.FS = fs }
+}
+
+func WithUpdateConfig(c ports.ConfigStore) UpdateOption {
+	return func(s *UpdateService) { s.Config = c }
+}
+
+func WithUpdateRegistry(r ports.TemplateRegistry) UpdateOption {
+	return func(s *UpdateService) { s.Registry = r }
+}
+
+func WithUpdateComponentService(cs *ComponentService) UpdateOption {
+	return func(s *UpdateService) { s.ComponentService = cs }
+}
+
+func WithUpdateStdout(w io.Writer) UpdateOption {
+	return func(s *UpdateService) { s.Stdout = w }
+}
+
+func WithUpdateStderr(w io.Writer) UpdateOption {
+	return func(s *UpdateService) { s.Stderr = w }
+}
+
+func NewUpdateService(opts ...UpdateOption) *UpdateService {
+	s := &UpdateService{}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
 type updateDecision string
@@ -72,14 +98,12 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 	if err != nil {
 		return fmt.Errorf("find project root: %w", err)
 	}
-
-	isMulti := false
-	if ok {
-		isMulti = cfg.Mode == "multi"
-		destDir = projectRoot
-	} else {
+	if !ok {
 		return fmt.Errorf("no project found in %s. Run 'unsarep install' first", destDir)
 	}
+
+	isMulti := cfg.Mode == "multi"
+	destDir = projectRoot
 
 	if err := s.FS.Chdir(destDir); err != nil {
 		return fmt.Errorf("chdir to dest: %w", err)
@@ -140,11 +164,13 @@ func (s *UpdateService) Execute(ctx context.Context, opt UpdateOptions) error {
 		return fmt.Errorf("load manifest: %w", err)
 	}
 
-	if _, err := fmt.Fprintf(s.Stdout, "Detected %s setup.\n", map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti]); err != nil {
+	setupLabel := map[bool]string{true: "multi-lab", false: "single-lab"}[isMulti]
+	if _, err := fmt.Fprintf(s.Stdout, "Detected %s setup.\n", setupLabel); err != nil {
 		return fmt.Errorf("write message: %w", err)
 	}
 
-	if isMulti && opt.Session == "" && len(cfg.Sessions) > 1 {
+	needsSessionConfirmation := isMulti && opt.Session == "" && len(cfg.Sessions) > 1
+	if needsSessionConfirmation {
 		if _, err := fmt.Fprintf(s.Stdout, "This will update all registered sessions: %s\n", strings.Join(cfg.Sessions, ", ")); err != nil {
 			return fmt.Errorf("write message: %w", err)
 		}
@@ -473,32 +499,33 @@ func (s *UpdateService) syncComponents(ctx context.Context, manifestComponents m
 	for name, rangeSpec := range manifestComponents {
 		installedVersion, isInstalled := installed[name]
 
-		if isInstalled {
-			constraint, err := semver.NewConstraint(rangeSpec)
-			if err != nil {
-				continue
-			}
-			v, err := semver.NewVersion(installedVersion)
-			if err != nil {
-				continue
-			}
-			if ok, _ := constraint.Validate(v); ok {
-				continue
-			}
-
-			if _, err := fmt.Fprintf(s.Stdout, "  Updating %s: %s -> %s\n", name, installedVersion, rangeSpec); err != nil {
-				return fmt.Errorf("write message: %w", err)
-			}
-			if err := s.ComponentService.Add(ctx, name, rangeSpec, false); err != nil {
-				slog.Warn("failed to update component", "component", name, "error", err)
-			}
-		} else {
+		if !isInstalled {
 			if _, err := fmt.Fprintf(s.Stdout, "  Installing %s (%s)\n", name, rangeSpec); err != nil {
 				return fmt.Errorf("write message: %w", err)
 			}
 			if err := s.ComponentService.Add(ctx, name, rangeSpec, false); err != nil {
 				slog.Warn("failed to install component", "component", name, "error", err)
 			}
+			continue
+		}
+
+		constraint, err := semver.NewConstraint(rangeSpec)
+		if err != nil {
+			continue
+		}
+		v, err := semver.NewVersion(installedVersion)
+		if err != nil {
+			continue
+		}
+		if ok, _ := constraint.Validate(v); ok {
+			continue
+		}
+
+		if _, err := fmt.Fprintf(s.Stdout, "  Updating %s: %s -> %s\n", name, installedVersion, rangeSpec); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
+		if err := s.ComponentService.Add(ctx, name, rangeSpec, false); err != nil {
+			slog.Warn("failed to update component", "component", name, "error", err)
 		}
 	}
 

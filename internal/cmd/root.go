@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 
 	"github.com/samber/oops"
 	"github.com/spf13/cobra"
@@ -24,13 +25,33 @@ and compile everything into a submission-ready PDF and source code bundle.`,
 		},
 	}
 	debugMode bool
+	cliOnce   sync.Once
 )
 
+func setupCLI() {
+	rootCmd.AddCommand(
+		newInstallCmd(),
+		newUpdateCmd(),
+		newPrepareCmd(),
+		newCaptureCmd(),
+		newComponentCmd(),
+		newCompletionCmd(),
+	)
+	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return cmd.Help()
+	}
+}
+
 func Execute() {
+	cliOnce.Do(setupCLI)
+
 	rootCmd.Version = Version
 	rootCmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
 
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug output with stack traces")
+
+	rootCmd.SetOut(os.Stdout)
+	rootCmd.SetErr(os.Stderr)
 
 	if err := rootCmd.Execute(); err != nil {
 		if debugMode {
@@ -43,14 +64,15 @@ func Execute() {
 }
 
 func debugPrintError(err error) {
-	if oopsErr, ok := oops.AsOops(err); ok {
-		slog.Error("error",
-			"error", oopsErr.Error(),
-			"stacktrace", oopsErr.StackFrames(),
-		)
-	} else {
+	oopsErr, ok := oops.AsOops(err)
+	if !ok {
 		slog.Error("error", "error", err)
+		return
 	}
+	slog.Error("error",
+		"error", oopsErr.Error(),
+		"stacktrace", oopsErr.StackFrames(),
+	)
 }
 
 func initConfig() error {
@@ -70,20 +92,6 @@ func initConfig() error {
 	return nil
 }
 
-func init() {
-	rootCmd.SetOut(os.Stdout)
-	rootCmd.SetErr(os.Stderr)
-
-	rootCmd.AddCommand(
-		newInstallCmd(),
-		newUpdateCmd(),
-		newPrepareCmd(),
-		newCaptureCmd(),
-		newComponentCmd(),
-		newCompletionCmd(),
-	)
-
-	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	}
+func ensureCLI() {
+	cliOnce.Do(setupCLI)
 }

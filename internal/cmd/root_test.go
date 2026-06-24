@@ -7,6 +7,7 @@ import (
 )
 
 func TestRootCmd_Help(t *testing.T) {
+	ensureCLI()
 	cmd := rootCmd
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
@@ -25,6 +26,7 @@ func TestRootCmd_Help(t *testing.T) {
 }
 
 func TestRootCmd_NoArgs_ShowsHelp(t *testing.T) {
+	ensureCLI()
 	cmd := rootCmd
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
@@ -43,6 +45,7 @@ func TestRootCmd_NoArgs_ShowsHelp(t *testing.T) {
 }
 
 func TestCompletionCmd(t *testing.T) {
+	ensureCLI()
 	shells := []string{"bash", "zsh", "fish", "powershell"}
 
 	for _, shell := range shells {

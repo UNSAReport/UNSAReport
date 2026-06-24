@@ -67,9 +67,24 @@ flag is used. A backup is created before applying updates, which can be restored
 			cfg := config.New()
 			reg := registry.NewRemote(fetcher)
 			compReg := registry.NewComponentRegistry(fetcher)
-			compSvc := services.NewComponentService(fetcher, fs, cfg, compReg, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			compSvc := services.NewComponentService(
+				services.WithComponentFetcher(fetcher),
+				services.WithComponentFS(fs),
+				services.WithComponentConfig(cfg),
+				services.WithComponentRegistry(compReg),
+				services.WithComponentStdout(cmd.OutOrStdout()),
+				services.WithComponentStderr(cmd.ErrOrStderr()),
+			)
 
-			svc := services.NewUpdateService(fetcher, fs, cfg, reg, compSvc, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			svc := services.NewUpdateService(
+				services.WithUpdateFetcher(fetcher),
+				services.WithUpdateFS(fs),
+				services.WithUpdateConfig(cfg),
+				services.WithUpdateRegistry(reg),
+				services.WithUpdateComponentService(compSvc),
+				services.WithUpdateStdout(cmd.OutOrStdout()),
+				services.WithUpdateStderr(cmd.ErrOrStderr()),
+			)
 			return svc.Execute(cmd.Context(), opt)
 		},
 	}

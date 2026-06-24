@@ -23,6 +23,8 @@ type registryTemplateVersion struct {
 	Path string `json:"path"`
 }
 
+var _ ports.TemplateRegistry = (*RemoteAdapter)(nil)
+
 type RemoteAdapter struct {
 	fetcher ports.TemplateFetcher
 }

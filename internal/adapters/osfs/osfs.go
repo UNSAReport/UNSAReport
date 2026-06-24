@@ -7,8 +7,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 	"github.com/samber/oops"
 )
+
+var _ ports.FileSystem = (*Adapter)(nil)
 
 type Adapter struct{}
 
@@ -50,8 +53,8 @@ func (a *Adapter) WriteFileAtomic(path string, data []byte, perm os.FileMode) er
 	}()
 
 	if _, err := tmp.Write(data); err != nil {
-		if err := tmp.Close(); err != nil {
-			slog.Warn("failed to close temp file", "path", tmpName, "error", err)
+		if closeErr := tmp.Close(); closeErr != nil {
+			slog.Warn("failed to close temp file", "path", tmpName, "error", closeErr)
 		}
 		return oops.With("path", path).Wrapf(err, "write temp file")
 	}

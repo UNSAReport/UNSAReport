@@ -20,6 +20,8 @@ import (
 	"github.com/taigrr/bubbleterm/emulator"
 )
 
+var _ ports.Renderer = (*Adapter)(nil)
+
 type Adapter struct{}
 
 func New() *Adapter {
@@ -50,6 +52,11 @@ func (a *Adapter) Render(ctx context.Context, resultPath string, commands []port
 		return output, oops.Wrapf(err, "create temp input file")
 	}
 	defer func() {
+		if closeErr := tempInput.Close(); closeErr != nil {
+			slog.Warn("failed to close temp input file", "path", tempInput.Name(), "error", closeErr)
+		}
+	}()
+	defer func() {
 		if err := os.Remove(tempInput.Name()); err != nil {
 			slog.Warn("failed to remove temp input file", "path", tempInput.Name(), "error", err)
 		}
@@ -57,9 +64,6 @@ func (a *Adapter) Render(ctx context.Context, resultPath string, commands []port
 
 	if _, err := tempInput.WriteString(output); err != nil {
 		return output, oops.Wrapf(err, "write temp input file")
-	}
-	if err := tempInput.Close(); err != nil {
-		return output, oops.Wrapf(err, "close temp input file")
 	}
 
 	if filepath.Ext(resultPath) == "" {
@@ -142,7 +146,7 @@ func typeColored(ptmx io.Writer, vtWrite io.Writer, cmdStr string, cfg ports.Cap
 
 	parts := strings.SplitN(cmdStr, " ", 2)
 	firstWord := parts[0]
-	rest := ""
+	var rest string
 	if len(parts) > 1 {
 		rest = " " + parts[1]
 	}

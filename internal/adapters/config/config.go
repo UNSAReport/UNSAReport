@@ -10,6 +10,8 @@ import (
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
+var _ ports.ConfigStore = (*Adapter)(nil)
+
 type Adapter struct{}
 
 func New() *Adapter {
@@ -39,11 +41,10 @@ func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, erro
 	found := true
 	b, err := os.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			found = false
-		} else {
+		if !os.IsNotExist(err) {
 			return ports.UnsareportConfig{}, false, fmt.Errorf("read file: %w", err)
 		}
+		found = false
 	}
 
 	if found {
@@ -82,7 +83,8 @@ func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, erro
 	if cfg.Capture.Rows <= 0 {
 		cfg.Capture.Rows = 500
 	}
-	if cfg.Mode != "" && cfg.Mode != "single" && cfg.Mode != "multi" {
+	validMode := cfg.Mode == "" || cfg.Mode == "single" || cfg.Mode == "multi"
+	if !validMode {
 		return ports.UnsareportConfig{}, found, fmt.Errorf("invalid mode %q in unsareport.json (must be \"single\" or \"multi\")", cfg.Mode)
 	}
 	if cfg.Mode == "multi" && len(cfg.Sessions) == 0 {

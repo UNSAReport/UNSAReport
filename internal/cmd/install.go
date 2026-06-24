@@ -50,15 +50,16 @@ If no template is specified, an interactive picker will be shown.`,
 			}
 
 			var templateName string
-			if len(args) == 1 {
+			switch {
+			case len(args) == 1:
 				templateName = args[0]
-			} else if opt.Local != "" {
+			case opt.Local != "":
 				selected, err := pickLocalTemplate(opt.Local)
 				if err != nil {
 					return err
 				}
 				templateName = selected
-			} else {
+			default:
 				selected, err := pickTemplate()
 				if err != nil {
 					return err
@@ -74,9 +75,24 @@ If no template is specified, an interactive picker will be shown.`,
 
 			reg := registry.NewRemote(fetcher)
 			compReg := registry.NewComponentRegistry(fetcher)
-			compSvc := services.NewComponentService(fetcher, fs, cfg, compReg, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			compSvc := services.NewComponentService(
+				services.WithComponentFetcher(fetcher),
+				services.WithComponentFS(fs),
+				services.WithComponentConfig(cfg),
+				services.WithComponentRegistry(compReg),
+				services.WithComponentStdout(cmd.OutOrStdout()),
+				services.WithComponentStderr(cmd.ErrOrStderr()),
+			)
 
-			svc := services.NewInstallService(fetcher, fs, cfg, reg, compSvc, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			svc := services.NewInstallService(
+				services.WithInstallFetcher(fetcher),
+				services.WithInstallFS(fs),
+				services.WithInstallConfig(cfg),
+				services.WithInstallRegistry(reg),
+				services.WithInstallComponentService(compSvc),
+				services.WithInstallStdout(cmd.OutOrStdout()),
+				services.WithInstallStderr(cmd.ErrOrStderr()),
+			)
 			return svc.Execute(cmd.Context(), opt)
 		},
 	}

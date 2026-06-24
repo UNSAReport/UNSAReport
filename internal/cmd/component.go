@@ -43,7 +43,14 @@ func newComponentListCmd() *cobra.Command {
 			cfg := config.New()
 			compReg := registry.NewComponentRegistry(fetcher)
 
-			svc := services.NewComponentService(fetcher, fs, cfg, compReg, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			svc := services.NewComponentService(
+				services.WithComponentFetcher(fetcher),
+				services.WithComponentFS(fs),
+				services.WithComponentConfig(cfg),
+				services.WithComponentRegistry(compReg),
+				services.WithComponentStdout(cmd.OutOrStdout()),
+				services.WithComponentStderr(cmd.ErrOrStderr()),
+			)
 			return svc.List(cmd.Context())
 		},
 	}
@@ -74,7 +81,14 @@ func newComponentAddCmd() *cobra.Command {
 			cfg := config.New()
 			compReg := registry.NewComponentRegistry(fetcher)
 
-			svc := services.NewComponentService(fetcher, fs, cfg, compReg, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			svc := services.NewComponentService(
+				services.WithComponentFetcher(fetcher),
+				services.WithComponentFS(fs),
+				services.WithComponentConfig(cfg),
+				services.WithComponentRegistry(compReg),
+				services.WithComponentStdout(cmd.OutOrStdout()),
+				services.WithComponentStderr(cmd.ErrOrStderr()),
+			)
 			if err := svc.Add(cmd.Context(), name, rangeSpec, force); err != nil {
 				return err
 			}
@@ -105,7 +119,14 @@ func newComponentRemoveCmd() *cobra.Command {
 			cfg := config.New()
 			compReg := registry.NewComponentRegistry(fetcher)
 
-			svc := services.NewComponentService(fetcher, fs, cfg, compReg, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			svc := services.NewComponentService(
+				services.WithComponentFetcher(fetcher),
+				services.WithComponentFS(fs),
+				services.WithComponentConfig(cfg),
+				services.WithComponentRegistry(compReg),
+				services.WithComponentStdout(cmd.OutOrStdout()),
+				services.WithComponentStderr(cmd.ErrOrStderr()),
+			)
 			if err := svc.Remove(cmd.Context(), args[0]); err != nil {
 				return err
 			}
@@ -131,7 +152,7 @@ func newComponentUpdateCmd() *cobra.Command {
   unsarep component update code-block`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := ""
+			var name string
 			if len(args) == 1 {
 				name = args[0]
 			}
@@ -141,7 +162,14 @@ func newComponentUpdateCmd() *cobra.Command {
 			cfg := config.New()
 			compReg := registry.NewComponentRegistry(fetcher)
 
-			svc := services.NewComponentService(fetcher, fs, cfg, compReg, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			svc := services.NewComponentService(
+				services.WithComponentFetcher(fetcher),
+				services.WithComponentFS(fs),
+				services.WithComponentConfig(cfg),
+				services.WithComponentRegistry(compReg),
+				services.WithComponentStdout(cmd.OutOrStdout()),
+				services.WithComponentStderr(cmd.ErrOrStderr()),
+			)
 			return svc.Update(cmd.Context(), name)
 		},
 	}

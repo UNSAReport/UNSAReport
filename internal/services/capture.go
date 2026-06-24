@@ -20,14 +20,34 @@ type CaptureService struct {
 	Stderr   io.Writer
 }
 
-func NewCaptureService(r ports.Renderer, fs ports.FileSystem, c ports.ConfigStore, stdout, stderr io.Writer) *CaptureService {
-	return &CaptureService{
-		Renderer: r,
-		FS:       fs,
-		Config:   c,
-		Stdout:   stdout,
-		Stderr:   stderr,
+type CaptureOption func(*CaptureService)
+
+func WithCaptureRenderer(r ports.Renderer) CaptureOption {
+	return func(s *CaptureService) { s.Renderer = r }
+}
+
+func WithCaptureFS(fs ports.FileSystem) CaptureOption {
+	return func(s *CaptureService) { s.FS = fs }
+}
+
+func WithCaptureConfig(c ports.ConfigStore) CaptureOption {
+	return func(s *CaptureService) { s.Config = c }
+}
+
+func WithCaptureStdout(w io.Writer) CaptureOption {
+	return func(s *CaptureService) { s.Stdout = w }
+}
+
+func WithCaptureStderr(w io.Writer) CaptureOption {
+	return func(s *CaptureService) { s.Stderr = w }
+}
+
+func NewCaptureService(opts ...CaptureOption) *CaptureService {
+	s := &CaptureService{}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
 type CaptureOptions struct {
@@ -135,10 +155,8 @@ func (s *CaptureService) Execute(ctx context.Context, opts CaptureOptions) error
 
 	commands = append(commands, ports.CaptureCommand{Type: "Sleep", Delay: 1 * time.Second})
 
-	var finalFlags []string
-	if opts.SaveFreezeFlags {
-		finalFlags = cfg.Capture.FreezeFlags
-	} else {
+	finalFlags := cfg.Capture.FreezeFlags
+	if !opts.SaveFreezeFlags {
 		finalFlags = append(cfg.Capture.FreezeFlags, opts.FreezeFlags...)
 	}
 

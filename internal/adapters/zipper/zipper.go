@@ -9,7 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
+
+var _ ports.Archiver = (*Adapter)(nil)
 
 var ErrSourceMissing = errors.New("source directory not found")
 
@@ -31,7 +35,7 @@ func (a *Adapter) ArchiveDir(zipPath, srcDir string) error {
 		return fmt.Errorf("%s is not a directory", srcDir)
 	}
 
-	var files []string
+	files := make([]string, 0)
 	err = filepath.WalkDir(srcDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -99,12 +103,12 @@ func (a *Adapter) ArchiveFiles(zipPath, baseDir string, files []string) error {
 		if err != nil {
 			return fmt.Errorf("open %s: %w", path, err)
 		}
-		_, err = io.Copy(w, f)
-		if err := f.Close(); err != nil {
-			slog.Warn("failed to close source file", "path", path, "error", err)
+		_, copyErr := io.Copy(w, f)
+		if closeErr := f.Close(); closeErr != nil {
+			slog.Warn("failed to close source file", "path", path, "error", closeErr)
 		}
-		if err != nil {
-			return fmt.Errorf("copy %s to zip: %w", path, err)
+		if copyErr != nil {
+			return fmt.Errorf("copy %s to zip: %w", path, copyErr)
 		}
 	}
 

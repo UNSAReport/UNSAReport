@@ -25,6 +25,8 @@ type registryVersionEntry struct {
 	Dependencies []string `json:"dependencies"`
 }
 
+var _ ports.ComponentRegistry = (*ComponentRegistryAdapter)(nil)
+
 type ComponentRegistryAdapter struct {
 	fetcher ports.TemplateFetcher
 }

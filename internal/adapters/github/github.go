@@ -14,8 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 	"github.com/samber/oops"
 )
+
+var _ ports.TemplateFetcher = (*Adapter)(nil)
 
 const (
 	httpTimeout       = 30 * time.Second
@@ -32,7 +35,8 @@ func New() *Adapter {
 
 func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (map[string][]byte, error) {
 	parts := strings.Split(repo, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+	validRepo := len(parts) == 2 && parts[0] != "" && parts[1] != ""
+	if !validRepo {
 		return nil, oops.Errorf("invalid repo %q (expected owner/repo)", repo)
 	}
 	owner, name := parts[0], parts[1]
@@ -88,9 +92,9 @@ func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (ma
 		if err != nil {
 			return nil, oops.With("file", f.Name).Wrapf(err, "open file in zip")
 		}
-		data, err := io.ReadAll(rc)
-		if err := rc.Close(); err != nil {
-			return nil, oops.With("file", f.Name).Wrapf(err, "close file in zip")
+		data, err := io.ReadAll(io.LimitReader(rc, maxBodySize))
+		if closeErr := rc.Close(); closeErr != nil {
+			return nil, oops.With("file", f.Name).Wrapf(closeErr, "close file in zip")
 		}
 		if err != nil {
 			return nil, oops.With("file", f.Name).Wrapf(err, "read file in zip")
@@ -148,7 +152,8 @@ func (a *Adapter) LoadLocal(dir string) (map[string][]byte, error) {
 
 func (a *Adapter) FetchRaw(ctx context.Context, repo, ref, path string) ([]byte, error) {
 	parts := strings.Split(repo, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+	validRepo := len(parts) == 2 && parts[0] != "" && parts[1] != ""
+	if !validRepo {
 		return nil, oops.Errorf("invalid repo %q (expected owner/repo)", repo)
 	}
 	owner, name := parts[0], parts[1]
