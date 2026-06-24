@@ -10,12 +10,17 @@ import (
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
+var _ ports.ConfigStore = (*Adapter)(nil)
+
+// Adapter implements ports.ConfigStore for reading and writing unsareport.json on the local filesystem.
 type Adapter struct{}
 
+// New returns a new Adapter for config file operations.
 func New() *Adapter {
 	return &Adapter{}
 }
 
+// FindProjectRoot walks up from startDir looking for unsareport.json and returns the first directory that contains it.
 func (a *Adapter) FindProjectRoot(startDir string) (string, ports.UnsareportConfig, bool, error) {
 	currentDir := startDir
 	for {
@@ -32,6 +37,7 @@ func (a *Adapter) FindProjectRoot(startDir string) (string, ports.UnsareportConf
 	return startDir, ports.UnsareportConfig{}, false, nil
 }
 
+// ReadConfig reads and validates unsareport.json from destDir, applying default values for missing fields.
 func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, error) {
 	path := filepath.Join(destDir, "unsareport.json")
 	var cfg ports.UnsareportConfig
@@ -39,11 +45,10 @@ func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, erro
 	found := true
 	b, err := os.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			found = false
-		} else {
+		if !os.IsNotExist(err) {
 			return ports.UnsareportConfig{}, false, fmt.Errorf("read file: %w", err)
 		}
+		found = false
 	}
 
 	if found {
@@ -75,9 +80,25 @@ func (a *Adapter) ReadConfig(destDir string) (ports.UnsareportConfig, bool, erro
 			"reset":   "0",
 		}
 	}
+
+	if cfg.Capture.Columns <= 0 {
+		cfg.Capture.Columns = 120
+	}
+	if cfg.Capture.Rows <= 0 {
+		cfg.Capture.Rows = 500
+	}
+	validMode := cfg.Mode == "" || cfg.Mode == "single" || cfg.Mode == "multi"
+	if !validMode {
+		return ports.UnsareportConfig{}, found, fmt.Errorf("invalid mode %q in unsareport.json (must be \"single\" or \"multi\")", cfg.Mode)
+	}
+	if cfg.Mode == "multi" && len(cfg.Sessions) == 0 {
+		return ports.UnsareportConfig{}, found, fmt.Errorf("multi-mode requires at least one session in unsareport.json")
+	}
+
 	return cfg, found, nil
 }
 
+// WriteConfig marshals cfg to JSON and writes it to unsareport.json in destDir, stamping the schema URL.
 func (a *Adapter) WriteConfig(destDir string, cfg ports.UnsareportConfig) error {
 	path := filepath.Join(destDir, "unsareport.json")
 

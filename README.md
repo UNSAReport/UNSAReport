@@ -1,15 +1,13 @@
 # UNSAReport CLI
 
 > [!WARNING]
-> This tool is particularly volatile as it is still being adapted to the actual needs to make work easier. It is very likely that some features are broken, don't exist, get removed randomly, or require manual intervention to work. Your best bet is to install the version in the dev branch, create an empty project and copy the latest unsareport.json from it.
+> This tool is under active development. Features may change, break, or require manual intervention. Use the `dev` branch for the latest state and copy the `unsareport.json` from a fresh project.
 
-A command-line interface designed to automate and manage laboratory reports for the UNSA Software Engineering career. This tool streamlines the process of scaffolding projects, updating templates, capturing terminal output, and preparing final submissions.
+A command-line tool for automating lab report creation in the UNSA Software Engineering program. It scaffolds Typst-based projects, manages versioned templates and reusable components, captures terminal output, and compiles everything into submission-ready deliverables.
 
 ## Templates
 
 Templates are maintained in a separate repository: [UNSAReport/templates](https://github.com/UNSAReport/templates).
-
-Available templates:
 
 | Template | Description |
 |----------|-------------|
@@ -22,9 +20,11 @@ Each template provides Typst components for academic reports: metadata-driven la
 
 The CLI lazily validates external dependencies at runtime:
 
-- [Typst](https://typst.app/): For report compilation and metadata extraction.
-- [Freeze](https://github.com/charmbracelet/freeze): For terminal output capture.
-- [ImageMagick](https://imagemagick.org/): For SVG to PNG conversion.
+| Tool | Purpose |
+|------|---------|
+| [Typst](https://typst.app/) | Report compilation and metadata extraction |
+| [Freeze](https://github.com/charmbracelet/freeze) | Terminal output capture |
+| [ImageMagick](https://imagemagick.org/) | SVG to PNG conversion |
 
 A `flake.nix` is provided for users who prefer a pre-configured Nix environment.
 
@@ -42,11 +42,11 @@ go install github.com/UNSAReport/UNSAReport/cmd/unsarep@latest
 nix run github:UNSAReport/UNSAReport -- --help
 ```
 
-## Usage
+## Commands
 
-### Initializing a Project
+### `unsarep install` — Scaffold a project
 
-To install a template into the current directory:
+Downloads template files and initializes an `unsareport.json` configuration.
 
 ```bash
 # Interactive template picker
@@ -55,6 +55,16 @@ unsarep install
 # Install a specific template
 unsarep install lab
 unsarep install multi-lab
+
+# Install a specific version
+unsarep install lab@1.0.0
+unsarep install lab@^1.0.0
+
+# Install from a local directory
+unsarep install --local ./my-templates
+
+# Install into a specific directory
+unsarep install lab --dest ./my-reports
 ```
 
 For multi-lab repositories, add new sessions with:
@@ -63,134 +73,161 @@ For multi-lab repositories, add new sessions with:
 unsarep install multi-lab --session l3
 ```
 
-### Updating Templates
+### `unsarep update` — Synchronize with upstream templates
 
-Keep your project's template files synchronized with the latest version:
+Compares local files against the latest template version. Shows a diff for each changed file and prompts before applying, unless `--force` is used. A backup is created before changes and can be restored with `--rollback`.
 
 ```bash
-# Update the current single-lab project or ALL registered sessions in a multi-lab project
+# Interactive update (per-file diff + prompt)
 unsarep update
+
+# Apply all updates without prompting
+unsarep update --force
 
 # Update a specific session in a multi-lab project
 unsarep update l1
+
+# Update from a local directory
+unsarep update --local ./my-templates
+
+# Rollback the last update
+unsarep update --rollback
 ```
 
-Use the `--force` flag to apply all updates without interactive prompts.
+### `unsarep prepare` — Compile and package submissions
 
-### Preparing Submissions
-
-The `prepare` command compiles the report and archives the source code into the output folder (defaults to `submission/`). This will generate a PDF file with the compiled report and a ZIP file containing the source code. It uses metadata defined in your report file (defaults to `report.typ`) to name the files according to a configurable template.
-
-If a `.git` directory is detected in the project root, the tool automatically filters out files in your source directory (defaults to `src/`) based on your `.gitignore` rules before creating the ZIP archive.
-
-**Single-lab project:**
+Compiles the Typst report to PDF and archives the source code into a ZIP file in the output directory (default: `submission/`). Uses metadata from `report.typ` to name files according to a configurable template. When a `.git` directory is present, the archive respects `.gitignore` rules.
 
 ```bash
+# Single-lab project
 unsarep prepare
-```
 
-**Multi-lab project:**
-
-```bash
-# From the project root, specifying the lab directory
+# Multi-lab project (from root)
 unsarep prepare l1
 
-# Or from within the lab directory itself
+# Multi-lab project (from within the lab directory)
 cd l1
 unsarep prepare
+
+# Re-trigger the naming template setup
+unsarep prepare --configure
 ```
 
-Use `--configure` to re-trigger the naming template setup prompt.
+### `unsarep capture` — Capture terminal output
 
-### Capturing Terminal Output
-
-Leveraging Freeze and ImageMagick, you can capture terminal sessions directly into PNG files.
-
-The `capture` command executes terminal instructions directly and captures the resulting output. It uses a clean terminal environment and supports custom prompt formatting.
+Executes terminal instructions in a virtual terminal and renders the output to a PNG using Freeze and ImageMagick.
 
 ```bash
-unsarep capture --cwd ./src output.png "python script.py" "w:2s"
+# Basic capture
+unsarep capture output.png "ls -la" "cat README.md"
+
+# With custom working directory and delays
+unsarep capture --cwd ./src result.png "python" "print('hello')" "w:1s"
+
+# Using control keys
+unsarep capture output.png "python" "print('hello')" "k:enter" "c:d"
 ```
 
-- Text arguments are typed into the terminal followed by `Enter`.
-- Arguments prefixed with `w:` are interpreted as a wait/sleep:
-  - `w:<duration>` (e.g., `w:2s`, `w:500ms`)
-- Arguments prefixed with `r:` write the raw text after it without pressing Enter.
-- Arguments prefixed with `c:` send a Ctrl + <key> combination (e.g., `c:c` for Ctrl+C).
-- Arguments prefixed with `k:` send a specific control key (e.g., `k:enter`, `k:tab`, `k:backspace`, `k:escape`, `k:esc`).
+**Instruction syntax:**
 
-Logs of the terminal output (including ANSI colors) are automatically saved in the `capture_logs/` directory as `.log` files.
+| Prefix | Behavior | Example |
+|--------|----------|---------|
+| *(none)* | Type text and press Enter | `"ls -la"` |
+| `w:` | Wait/sleep for a duration | `"w:2s"`, `"w:500ms"` |
+| `r:` | Write raw text without Enter | `"r:some text"` |
+| `c:` | Send Ctrl+key combination | `"c:c"` (Ctrl+C) |
+| `k:` | Send a control key | `"k:enter"`, `"k:tab"`, `"k:escape"` |
 
-## Project Structure
+Logs of the terminal output (including ANSI colors) are saved in the `capture_logs/` directory.
 
-The structure depends on the template used. Examples from the available templates:
+### `unsarep component` — Manage Typst components
 
-### Single Lab (`lab` template)
-```text
-.
-├── unsareport.json    # Project configuration
-├── report.typ        # Main report file
-├── lib.typ           # Template library
-├── functions.typ     # Useful functions for config var generation
-├── README.md         # Summary file with instructions
-├── flake.nix         # Nix flake for development environment
-├── bibliography.bib  # Bibliography file for references
-├── guide/            # Lab guide and instructions
-├── src/              # Source code directory
-├── snippets/         # Code snippets for the report directory
-├── img/              # Image assets
-└── submission/       # Generated PDF and ZIP
+Add, remove, list, and update reusable Typst components from the [UNSAReport/components](https://github.com/UNSAReport/components) registry.
+
+```bash
+# List available components
+unsarep component list
+
+# Add a component
+unsarep component add code-block
+unsarep component add code-block@^1.0.0
+
+# Remove a component
+unsarep component remove code-block
+
+# Update all components
+unsarep component update
+
+# Update a specific component
+unsarep component update code-block
 ```
 
-### Multi Lab (`multi-lab` template)
-```text
-.
-├── unsareport.json         # Project configuration
-├── lib.typ                # Template library
-├── functions.typ          # Useful functions for config var generation
-├── README.md              # Summary file with instructions
-├── flake.nix              # Nix flake for development environment
-├── img/fixed/             # Fixed image assets
-├── l1/                    # Lab 1 directory
-│   ├── report.typ         # Lab 1 report file
-│   ├── bibliography.bib   # Lab 1 bibliography file for references
-│   ├── guide/             # Lab 1 guide and instructions
-│   ├── snippets/          # Lab 1 code snippets for the report directory
-│   ├── img/lab/           # Lab 1 specific images
-│   ├── src/               # Lab 1 source code
-│   └── submission/        # Lab 1 generated PDF and ZIP
-└── l2/
-    ├── report.typ
-    └── ...
+### `unsarep completion` — Shell completions
+
+```bash
+unsarep completion bash   # Bash
+unsarep completion zsh    # Zsh
+unsarep completion fish   # Fish
+unsarep completion powershell  # PowerShell
 ```
 
 ## Configuration
 
-The `unsareport.json` file in your project root controls the behavior of the tool:
+The `unsareport.json` file in your project root controls CLI behavior. A JSON schema is published alongside each release for editor autocompletion.
 
-- `template`: (string) The template used to install this project (e.g., `"lab"`, `"multi-lab"`).
-- `mode`: (string) The template mode: `"single"` or `"multi"`.
-- `sessions`: (array of strings) List of registered session directories (e.g., `["l1", "l2"]`) in a multi-lab setup. Managed automatically by `install --session`.
-- `capture`:
-  - `columns`: (integer) The width of the terminal in characters (default: `120`).
-  - `freezeFlags`: (array of strings) Additional flags to pass to `freeze` during capture.
-  - `prompt`: (string) The prompt character to use (default: `❯ `).
-  - `colors`: (object) ANSI color codes for syntax highlighting during capture:
-    - `prompt`: Color for the prompt character.
-    - `command`: Color for the first word of a command.
-    - `args`: Color for the rest of the command arguments.
-    - `reset`: ANSI code to reset formatting (usually `0`).
-- `prepare`:
-  - `input`:
-    - `srcDir`: (string) The directory containing your source code. Defaults to `src`.
-    - `reportFile`: (string) The main Typst report filename. Defaults to `report.typ`.
-  - `output`:
-    - `submissionDir`: (string) The directory where the compiled report and zip bundle will be saved. Defaults to `submission`.
-    - `fileTemplate`: (string) Naming template for the generated PDF and ZIP files.
-    - `reportWord`: (string) Word you want to use for "Report" in filenames.
-    - `codeWord`: (string) Word you want to use for "Source Code" in filenames.
+```jsonc
+{
+  "$schema": "https://raw.githubusercontent.com/UNSAReport/UNSAReport/v1.0/schemas/unsareport.schema.json",
+  "template": "lab",
+  "templateVersion": "1.2.0",
+  "mode": "single",            // "single" or "multi"
+  "sessions": ["l1", "l2"],    // only in multi mode
+  "components": {
+    "code-block": {
+      "version": "1.0.0",
+      "installed_at": "2026-01-15T10:30:00Z"
+    }
+  },
+  "capture": {
+    "columns": 120,
+    "freezeFlags": [],
+    "prompt": "❯ ",
+    "colors": {
+      "prompt": "32",
+      "command": "36",
+      "args": "33",
+      "reset": "0"
+    }
+  },
+  "prepare": {
+    "input": {
+      "srcDir": "src",
+      "reportFile": "report.typ"
+    },
+    "output": {
+      "submissionDir": "submission",
+      "fileTemplate": "{output_type}_{lab_number}",
+      "reportWord": "Informe",
+      "codeWord": "Código Fuente"
+    }
+  }
+}
+```
 
-These customizable paths allow you to adapt the template structure to your needs.
+### Lockfile
+
+An `unsareport.lock` file is automatically maintained to track installed template and component versions with integrity hashes. Do not edit this file manually.
+
+### Environment Variables
+
+All environment variables are prefixed with `UNSAREP_`:
+
+| Variable | Description |
+|----------|-------------|
+| `UNSAREP_DEST` | Default destination directory |
+| `UNSAREP_SESSION` | Default session for multi-lab projects |
+| `UNSAREP_LOCAL` | Default local template source |
+| `UNSAREP_FREEZE_FLAGS` | Default flags for Freeze |
 
 ## License
 

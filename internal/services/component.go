@@ -3,7 +3,8 @@ package services
 import (
 	"context"
 	"fmt"
-	"os"
+	"io"
+	"log/slog"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -14,22 +15,61 @@ import (
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
+var componentNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
+// ComponentService manages installing, removing, and updating Typst component dependencies.
 type ComponentService struct {
 	Fetcher  ports.TemplateFetcher
 	FS       ports.FileSystem
 	Config   ports.ConfigStore
 	Registry ports.ComponentRegistry
+	Stdout   io.Writer
+	Stderr   io.Writer
 }
 
-func NewComponentService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.ComponentRegistry) *ComponentService {
-	return &ComponentService{
-		Fetcher:  f,
-		FS:       fs,
-		Config:   c,
-		Registry: r,
+// ComponentOption configures a ComponentService via functional options.
+type ComponentOption func(*ComponentService)
+
+// WithComponentFetcher sets the template fetcher for downloading component files.
+func WithComponentFetcher(f ports.TemplateFetcher) ComponentOption {
+	return func(s *ComponentService) { s.Fetcher = f }
+}
+
+// WithComponentFS sets the filesystem used for writing component files.
+func WithComponentFS(fs ports.FileSystem) ComponentOption {
+	return func(s *ComponentService) { s.FS = fs }
+}
+
+// WithComponentConfig sets the configuration store for reading and writing project config.
+func WithComponentConfig(c ports.ConfigStore) ComponentOption {
+	return func(s *ComponentService) { s.Config = c }
+}
+
+// WithComponentRegistry sets the component registry for resolving component versions.
+func WithComponentRegistry(r ports.ComponentRegistry) ComponentOption {
+	return func(s *ComponentService) { s.Registry = r }
+}
+
+// WithComponentStdout sets the writer for standard output messages.
+func WithComponentStdout(w io.Writer) ComponentOption {
+	return func(s *ComponentService) { s.Stdout = w }
+}
+
+// WithComponentStderr sets the writer for standard error messages.
+func WithComponentStderr(w io.Writer) ComponentOption {
+	return func(s *ComponentService) { s.Stderr = w }
+}
+
+// NewComponentService creates a ComponentService with the given functional options applied.
+func NewComponentService(opts ...ComponentOption) *ComponentService {
+	s := &ComponentService{}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
+// ComponentInstallResult summarizes the outcome of installing a single component.
 type ComponentInstallResult struct {
 	Name            string
 	RangeSpec       string
@@ -37,6 +77,7 @@ type ComponentInstallResult struct {
 	Status          string
 }
 
+// Add installs a single component by name and version range, resolving and writing it to the components directory.
 func (s *ComponentService) Add(ctx context.Context, name, rangeSpec string, force bool) error {
 	resolvedVersion, info, cv, err := s.Registry.ResolveVersion(name, rangeSpec)
 	if err != nil {
@@ -45,6 +86,7 @@ func (s *ComponentService) Add(ctx context.Context, name, rangeSpec string, forc
 	return s.addResolved(ctx, name, force, resolvedVersion, info, cv)
 }
 
+// AddFromManifest installs multiple components declared in a manifest, including transitive dependencies.
 func (s *ComponentService) AddFromManifest(ctx context.Context, components map[string]string) ([]ComponentInstallResult, error) {
 	var results []ComponentInstallResult
 	visited := make(map[string]bool)
@@ -109,7 +151,6 @@ func (s *ComponentService) addResolved(ctx context.Context, name string, force b
 		return fmt.Errorf("unsareport.json not found. Are you in a project directory?")
 	}
 
-	var componentNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 	if !componentNameRegex.MatchString(name) {
 		return fmt.Errorf("invalid component name %q: must contain only alphanumeric characters, underscores, or dashes", name)
 	}
@@ -131,11 +172,17 @@ func (s *ComponentService) addResolved(ctx context.Context, name string, force b
 		if existingPkg, exists := lf.Packages[lockKey]; exists {
 			localHash := config.ComputeIntegrity(localData)
 			if localHash != existingPkg.Integrity {
-				fmt.Fprintf(os.Stdout, "Warning: Local modifications detected in %s. Overwrite? (y/N): ", name+".typ")
+				if _, err := fmt.Fprintf(s.Stdout, "Warning: Local modifications detected in %s. Overwrite? (y/N): ", name+".typ"); err != nil {
+					return fmt.Errorf("write prompt: %w", err)
+				}
 				var answer string
-				fmt.Scanln(&answer)
+				if _, err := fmt.Scanln(&answer); err != nil {
+					return fmt.Errorf("read input: %w", err)
+				}
 				if strings.ToLower(strings.TrimSpace(answer)) != "y" {
-					fmt.Fprintf(os.Stdout, "Skipped: %s\n", name)
+					if _, err := fmt.Fprintf(s.Stdout, "Skipped: %s\n", name); err != nil {
+						return fmt.Errorf("write skipped: %w", err)
+					}
 					return nil
 				}
 			}
@@ -202,6 +249,7 @@ func (s *ComponentService) addResolved(ctx context.Context, name string, force b
 	return nil
 }
 
+// Remove uninstalls a component by deleting its file and removing it from the lockfile and config.
 func (s *ComponentService) Remove(ctx context.Context, name string) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {
@@ -244,6 +292,7 @@ func (s *ComponentService) Remove(ctx context.Context, name string) error {
 	return nil
 }
 
+// List prints all available components from the registry alongside their installed version, if any.
 func (s *ComponentService) List(ctx context.Context) error {
 	components, err := s.Registry.ListComponents()
 	if err != nil {
@@ -255,7 +304,10 @@ func (s *ComponentService) List(ctx context.Context) error {
 		return fmt.Errorf("get cwd: %w", err)
 	}
 
-	_, cfg, ok, _ := s.Config.FindProjectRoot(cwd)
+	_, cfg, ok, err := s.Config.FindProjectRoot(cwd)
+	if err != nil {
+		return fmt.Errorf("find project root: %w", err)
+	}
 
 	installed := make(map[string]string)
 	if ok && cfg.Components != nil {
@@ -264,20 +316,27 @@ func (s *ComponentService) List(ctx context.Context) error {
 		}
 	}
 
-	fmt.Fprintf(os.Stdout, "%-20s %-10s %-40s\n", "NAME", "INSTALLED", "DESCRIPTION")
-	fmt.Fprintln(os.Stdout, strings.Repeat("-", 70))
+	if _, err := fmt.Fprintf(s.Stdout, "%-20s %-10s %-40s\n", "NAME", "INSTALLED", "DESCRIPTION"); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+	if _, err := fmt.Fprintln(s.Stdout, strings.Repeat("-", 70)); err != nil {
+		return fmt.Errorf("write separator: %w", err)
+	}
 
 	for _, c := range components {
 		status := "no"
 		if v, ok := installed[c.Name]; ok {
 			status = v
 		}
-		fmt.Fprintf(os.Stdout, "%-20s %-10s %-40s\n", c.Name, status, c.Description)
+		if _, err := fmt.Fprintf(s.Stdout, "%-20s %-10s %-40s\n", c.Name, status, c.Description); err != nil {
+			return fmt.Errorf("write component: %w", err)
+		}
 	}
 
 	return nil
 }
 
+// Update updates a specific component or all installed components to their latest compatible version.
 func (s *ComponentService) Update(ctx context.Context, name string) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {
@@ -297,13 +356,15 @@ func (s *ComponentService) Update(ctx context.Context, name string) error {
 	}
 
 	if cfg.Components == nil {
-		fmt.Fprintln(os.Stdout, "No components installed.")
+		if _, err := fmt.Fprintln(s.Stdout, "No components installed."); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 		return nil
 	}
 
 	for compName := range cfg.Components {
 		if err := s.updateSingle(ctx, projectRoot, cfg, compName); err != nil {
-			fmt.Fprintf(os.Stdout, "Warning: failed to update %s: %v\n", compName, err)
+			slog.Warn("failed to update component", "component", compName, "error", err)
 		}
 	}
 
@@ -322,11 +383,15 @@ func (s *ComponentService) updateSingle(ctx context.Context, projectRoot string,
 	}
 
 	if entry.Version == latestVersion.String() {
-		fmt.Fprintf(os.Stdout, "%s: already up to date (%s)\n", name, entry.Version)
+		if _, err := fmt.Fprintf(s.Stdout, "%s: already up to date (%s)\n", name, entry.Version); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 		return nil
 	}
 
-	fmt.Fprintf(os.Stdout, "%s: updating %s -> %s\n", name, entry.Version, latestVersion.String())
+	if _, err := fmt.Fprintf(s.Stdout, "%s: updating %s -> %s\n", name, entry.Version, latestVersion.String()); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 
 	if err := s.Add(ctx, name, "latest", true); err != nil {
 		return fmt.Errorf("update component: %w", err)

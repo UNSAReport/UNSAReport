@@ -2,35 +2,76 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/UNSAReport/UNSAReport/internal/adapters/zipper"
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 	"github.com/charmbracelet/huh"
 )
 
+// PrepareOptions holds the parameters for a single prepare execution.
 type PrepareOptions struct {
 	Configure bool
 }
 
+// PrepareService compiles a Typst report into PDF and archives source code for submission.
 type PrepareService struct {
 	Compiler ports.Compiler
 	Archiver ports.Archiver
 	FS       ports.FileSystem
 	Config   ports.ConfigStore
+	Stdout   io.Writer
+	Stderr   io.Writer
 }
 
-func NewPrepareService(c ports.Compiler, a ports.Archiver, fs ports.FileSystem, cfg ports.ConfigStore) *PrepareService {
-	return &PrepareService{
-		Compiler: c,
-		Archiver: a,
-		FS:       fs,
-		Config:   cfg,
+// PrepareOption configures a PrepareService via functional options.
+type PrepareOption func(*PrepareService)
+
+// WithPrepareCompiler sets the typst compiler used to render the report.
+func WithPrepareCompiler(c ports.Compiler) PrepareOption {
+	return func(s *PrepareService) { s.Compiler = c }
+}
+
+// WithPrepareArchiver sets the archiver used to create the source code zip.
+func WithPrepareArchiver(a ports.Archiver) PrepareOption {
+	return func(s *PrepareService) { s.Archiver = a }
+}
+
+// WithPrepareFS sets the filesystem used for file operations during prepare.
+func WithPrepareFS(fs ports.FileSystem) PrepareOption {
+	return func(s *PrepareService) { s.FS = fs }
+}
+
+// WithPrepareConfig sets the configuration store for reading project settings.
+func WithPrepareConfig(cfg ports.ConfigStore) PrepareOption {
+	return func(s *PrepareService) { s.Config = cfg }
+}
+
+// WithPrepareStdout sets the writer for standard output messages.
+func WithPrepareStdout(w io.Writer) PrepareOption {
+	return func(s *PrepareService) { s.Stdout = w }
+}
+
+// WithPrepareStderr sets the writer for standard error messages.
+func WithPrepareStderr(w io.Writer) PrepareOption {
+	return func(s *PrepareService) { s.Stderr = w }
+}
+
+// NewPrepareService creates a PrepareService with the given functional options applied.
+func NewPrepareService(opts ...PrepareOption) *PrepareService {
+	s := &PrepareService{}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
 type prepareContext struct {
@@ -40,6 +81,7 @@ type prepareContext struct {
 	labDir      string
 }
 
+// Execute compiles the report to PDF, archives the source directory, and places both in the submission folder.
 func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDirArg string) error {
 	cwd, err := s.FS.Getwd()
 	if err != nil {
@@ -79,23 +121,24 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 		}
 	}
 
-	reportWord := pctx.cfg.Prepare.Output.ReportWord
-	if reportWord == "" {
-		reportWord = "Informe"
+	reportWord := "Informe"
+	if pctx.cfg.Prepare.Output.ReportWord != "" {
+		reportWord = pctx.cfg.Prepare.Output.ReportWord
 	}
-	codeWord := pctx.cfg.Prepare.Output.CodeWord
-	if codeWord == "" {
-		codeWord = "Código Fuente"
+	codeWord := "Código Fuente"
+	if pctx.cfg.Prepare.Output.CodeWord != "" {
+		codeWord = pctx.cfg.Prepare.Output.CodeWord
 	}
 
 	generatedReportName := ApplyTemplate(pctx.cfg.Prepare.Output.FileTemplate, vars, reportWord)
 
-	fmt.Fprintln(os.Stdout, "Compiling typst report...")
+	if _, err := fmt.Fprintln(s.Stdout, "Compiling typst report..."); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 	inputs := map[string]string{"title": generatedReportName}
+	inputs["unsarep-root"] = "/"
 	if pctx.isMulti {
 		inputs["unsarep-root"] = "/" + pctx.labDir + "/"
-	} else {
-		inputs["unsarep-root"] = "/"
 	}
 	if err := s.Compiler.Compile(ctx, reportPath, reportPDF, inputs); err != nil {
 		return fmt.Errorf("compile report: %w", err)
@@ -117,9 +160,13 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 	}
 
 	zipPath := filepath.Join(submissionDir, codeFile)
-	s.FS.Remove(zipPath)
+	if err := s.FS.Remove(zipPath); err != nil && !os.IsNotExist(err) {
+		slog.Warn("could not remove old zip", "path", zipPath, "error", err)
+	}
 
-	fmt.Fprintf(os.Stdout, "Archiving %s to %s...\n", srcDir, zipPath)
+	if _, err := fmt.Fprintf(s.Stdout, "Archiving %s to %s...\n", srcDir, zipPath); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 	files, err := s.listGitFiles(ctx, srcDir)
 	if err != nil {
 		return fmt.Errorf("list git files: %w", err)
@@ -129,18 +176,23 @@ func (s *PrepareService) Execute(ctx context.Context, opt PrepareOptions, labDir
 		if err := s.Archiver.ArchiveFiles(zipPath, srcDir, files); err != nil {
 			return fmt.Errorf("archive files: %w", err)
 		}
-	} else {
-		if err := s.Archiver.ArchiveDir(zipPath, srcDir); err != nil {
-			if strings.Contains(err.Error(), "source directory not found") {
-				fmt.Fprintf(os.Stdout, "Warning: %s directory not found. Skipping zip generation.\n", srcDir)
-			} else {
-				return fmt.Errorf("archive dir: %w", err)
-			}
-		}
+		return nil
 	}
 
-	fmt.Fprintf(os.Stdout, "\nReport: %s\n", filepath.Join(submissionDir, reportFile))
-	fmt.Fprintf(os.Stdout, "Code:  %s\n", filepath.Join(submissionDir, codeFile))
+	if err := s.Archiver.ArchiveDir(zipPath, srcDir); err != nil {
+		if errors.Is(err, zipper.ErrSourceMissing) {
+			slog.Warn("source directory not found, skipping zip generation", "dir", srcDir)
+			return nil
+		}
+		return fmt.Errorf("archive dir: %w", err)
+	}
+
+	if _, err := fmt.Fprintf(s.Stdout, "\nReport: %s\n", filepath.Join(submissionDir, reportFile)); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
+	if _, err := fmt.Fprintf(s.Stdout, "Code:  %s\n", filepath.Join(submissionDir, codeFile)); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
 	return nil
 }
 
@@ -160,7 +212,7 @@ func (s *PrepareService) listGitFiles(ctx context.Context, srcDir string) ([]str
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	var files []string
+	files := make([]string, 0, len(lines))
 	for _, line := range lines {
 		if line == "" {
 			continue
@@ -182,7 +234,7 @@ func (s *PrepareService) listGitFiles(ctx context.Context, srcDir string) ([]str
 func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareContext, error) {
 	projectRoot, cfg, ok, err := s.Config.FindProjectRoot(cwd)
 	if err != nil {
-		fmt.Fprintln(os.Stdout, err.Error())
+		return prepareContext{}, fmt.Errorf("find project root: %w", err)
 	}
 
 	if !ok {
@@ -227,23 +279,27 @@ func (s *PrepareService) resolvePrepareContext(cwd, labDirArg string) (prepareCo
 }
 
 func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[string]string) error {
-	reportWord := pctx.cfg.Prepare.Output.ReportWord
-	if reportWord == "" {
-		reportWord = "Informe"
+	reportWord := "Informe"
+	if pctx.cfg.Prepare.Output.ReportWord != "" {
+		reportWord = pctx.cfg.Prepare.Output.ReportWord
 	}
-	codeWord := pctx.cfg.Prepare.Output.CodeWord
-	if codeWord == "" {
-		codeWord = "Código Fuente"
+	codeWord := "Código Fuente"
+	if pctx.cfg.Prepare.Output.CodeWord != "" {
+		codeWord = pctx.cfg.Prepare.Output.CodeWord
 	}
 
-	input := pctx.cfg.Prepare.Output.FileTemplate
-	if input == "" {
-		input = "{output_type}_{lab_number}"
+	input := "{output_type}_{lab_number}"
+	if pctx.cfg.Prepare.Output.FileTemplate != "" {
+		input = pctx.cfg.Prepare.Output.FileTemplate
 	}
 
 	for {
-		fmt.Fprintln(os.Stdout, "\nVariable configuration for report naming:")
-		fmt.Fprintln(os.Stdout, "Available variables:")
+		if _, err := fmt.Fprintln(s.Stdout, "\nVariable configuration for report naming:"); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
+		if _, err := fmt.Fprintln(s.Stdout, "Available variables:"); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 
 		keys := make([]string, 0, len(vars))
 		for k := range vars {
@@ -255,9 +311,13 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 			if k == "output_type" {
 				desc = "Deliverable type (e.g., Informe or Código Fuente)"
 			}
-			fmt.Fprintf(os.Stdout, "  {%s}: %s\n", k, desc)
+			if _, err := fmt.Fprintf(s.Stdout, "  {%s}: %s\n", k, desc); err != nil {
+				return fmt.Errorf("write variable: %w", err)
+			}
 		}
-		fmt.Fprintln(os.Stdout, "\nExample: {output_type}_{lab_number}_{members_abbr_list}")
+		if _, err := fmt.Fprintln(s.Stdout, "\nExample: {output_type}_{lab_number}_{members_abbr_list}"); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 
 		form := huh.NewForm(huh.NewGroup(
 			huh.NewInput().
@@ -320,7 +380,9 @@ func (s *PrepareService) promptConfiguration(pctx *prepareContext, vars map[stri
 			if err := s.Config.WriteConfig(pctx.projectRoot, pctx.cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stdout, "Configuration saved to unsareport.json\n")
+			if _, err := fmt.Fprintf(s.Stdout, "Configuration saved to unsareport.json\n"); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 			break
 		}
 	}

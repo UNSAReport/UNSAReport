@@ -3,7 +3,8 @@ package services
 import (
 	"context"
 	"fmt"
-	"os"
+	"io"
+	"log/slog"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
+// InstallOptions holds the parameters for a single template installation.
 type InstallOptions struct {
 	Dest     string
 	Session  string
@@ -19,24 +21,65 @@ type InstallOptions struct {
 	Local    string
 }
 
+// InstallService manages downloading and scaffolding a template into a project directory.
 type InstallService struct {
 	Fetcher          ports.TemplateFetcher
 	FS               ports.FileSystem
 	Config           ports.ConfigStore
 	Registry         ports.TemplateRegistry
 	ComponentService *ComponentService
+	Stdout           io.Writer
+	Stderr           io.Writer
 }
 
-func NewInstallService(f ports.TemplateFetcher, fs ports.FileSystem, c ports.ConfigStore, r ports.TemplateRegistry, cs *ComponentService) *InstallService {
-	return &InstallService{
-		Fetcher:          f,
-		FS:               fs,
-		Config:           c,
-		Registry:         r,
-		ComponentService: cs,
+// InstallOption configures an InstallService via functional options.
+type InstallOption func(*InstallService)
+
+// WithInstallFetcher sets the template fetcher used to download template files.
+func WithInstallFetcher(f ports.TemplateFetcher) InstallOption {
+	return func(s *InstallService) { s.Fetcher = f }
+}
+
+// WithInstallFS sets the filesystem used for writing template files to disk.
+func WithInstallFS(fs ports.FileSystem) InstallOption {
+	return func(s *InstallService) { s.FS = fs }
+}
+
+// WithInstallConfig sets the configuration store for reading and writing project config.
+func WithInstallConfig(c ports.ConfigStore) InstallOption {
+	return func(s *InstallService) { s.Config = c }
+}
+
+// WithInstallRegistry sets the template registry for resolving template versions.
+func WithInstallRegistry(r ports.TemplateRegistry) InstallOption {
+	return func(s *InstallService) { s.Registry = r }
+}
+
+// WithInstallComponentService sets the component service for installing template dependencies.
+func WithInstallComponentService(cs *ComponentService) InstallOption {
+	return func(s *InstallService) { s.ComponentService = cs }
+}
+
+// WithInstallStdout sets the writer for standard output messages.
+func WithInstallStdout(w io.Writer) InstallOption {
+	return func(s *InstallService) { s.Stdout = w }
+}
+
+// WithInstallStderr sets the writer for standard error messages.
+func WithInstallStderr(w io.Writer) InstallOption {
+	return func(s *InstallService) { s.Stderr = w }
+}
+
+// NewInstallService creates an InstallService with the given functional options applied.
+func NewInstallService(opts ...InstallOption) *InstallService {
+	s := &InstallService{}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
+// Execute runs the full template installation: fetches files, writes them to disk, and installs components.
 func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error {
 	destDir := opt.Dest
 	if destDir == "" {
@@ -49,7 +92,7 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 
 	projectRoot, cfg, hasConfig, err := s.Config.FindProjectRoot(destDir)
 	if err != nil {
-		fmt.Fprintln(os.Stdout, err.Error())
+		return fmt.Errorf("find project root: %w", err)
 	}
 	if hasConfig {
 		destDir = projectRoot
@@ -123,12 +166,20 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 	}
 
 	if opt.Session != "" {
-		fmt.Fprintf(os.Stdout, "Installing session '%s' into multi-lab project: %s\n", opt.Session, destDir)
+		if _, err := fmt.Fprintf(s.Stdout, "Installing session '%s' into multi-lab project: %s\n", opt.Session, destDir); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 	} else {
-		fmt.Fprintf(os.Stdout, "Installing %s template to: %s\n", template.Name, destDir)
-		fmt.Fprintf(os.Stdout, "Mode: %s\n", m.Mode)
+		if _, err := fmt.Fprintf(s.Stdout, "Installing %s template to: %s\n", template.Name, destDir); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
+		if _, err := fmt.Fprintf(s.Stdout, "Mode: %s\n", m.Mode); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 	}
-	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+	if _, err := fmt.Fprintln(s.Stdout, strings.Repeat("-", 50)); err != nil {
+		return fmt.Errorf("write separator: %w", err)
+	}
 
 	cfg.Template = template.Name
 	cfg.TemplateVersion = template.Version
@@ -186,9 +237,13 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		return fmt.Errorf("write config: %w", err)
 	}
 	if !hasConfig {
-		fmt.Fprintf(os.Stdout, "Created: unsareport.json (Mode: %s)\n", cfg.Mode)
+		if _, err := fmt.Fprintf(s.Stdout, "Created: unsareport.json (Mode: %s)\n", cfg.Mode); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 	} else {
-		fmt.Fprintf(os.Stdout, "Updated: unsareport.json\n")
+		if _, err := fmt.Fprintln(s.Stdout, "Updated: unsareport.json"); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 	}
 
 	components := m.GetComponents()
@@ -197,11 +252,17 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 			return fmt.Errorf("chdir to dest: %w", err)
 		}
 
-		fmt.Fprintf(os.Stdout, "\n%s\n", "Downloading components...")
-		fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
+		if _, err := fmt.Fprintf(s.Stdout, "\n%s\n", "Downloading components..."); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
+		if _, err := fmt.Fprintln(s.Stdout, strings.Repeat("-", 50)); err != nil {
+			return fmt.Errorf("write separator: %w", err)
+		}
 
 		for name, rangeSpec := range components {
-			fmt.Fprintf(os.Stdout, "  Component: %s (range: %s)\n", name, rangeSpec)
+			if _, err := fmt.Fprintf(s.Stdout, "  Component: %s (range: %s)\n", name, rangeSpec); err != nil {
+				return fmt.Errorf("write component: %w", err)
+			}
 		}
 
 		results, err := s.ComponentService.AddFromManifest(ctx, components)
@@ -210,23 +271,41 @@ func (s *InstallService) Execute(ctx context.Context, opt InstallOptions) error 
 		}
 
 		for _, r := range results {
-			fmt.Fprintf(os.Stdout, "    -> Resolved: %s (version: %s)\n", r.Name, r.ResolvedVersion)
-			fmt.Fprintf(os.Stdout, "  Created: components/%s.typ\n", r.Name)
+			if _, err := fmt.Fprintf(s.Stdout, "    -> Resolved: %s (version: %s)\n", r.Name, r.ResolvedVersion); err != nil {
+				return fmt.Errorf("write resolved: %w", err)
+			}
+			if _, err := fmt.Fprintf(s.Stdout, "  Created: components/%s.typ\n", r.Name); err != nil {
+				return fmt.Errorf("write created: %w", err)
+			}
 		}
 
-		fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
-		fmt.Fprintf(os.Stdout, "Components installed: %d\n", len(results))
+		if _, err := fmt.Fprintln(s.Stdout, strings.Repeat("-", 50)); err != nil {
+			return fmt.Errorf("write separator: %w", err)
+		}
+		if _, err := fmt.Fprintf(s.Stdout, "Components installed: %d\n", len(results)); err != nil {
+			return fmt.Errorf("write count: %w", err)
+		}
 	}
 
 	s.recordTemplateLockfile(destDir, cfg, installedEntries, files)
 
-	fmt.Fprintln(os.Stdout, strings.Repeat("-", 50))
-	fmt.Fprintln(os.Stdout, "Installation complete!")
-	fmt.Fprintln(os.Stdout)
+	if _, err := fmt.Fprintln(s.Stdout, strings.Repeat("-", 50)); err != nil {
+		return fmt.Errorf("write separator: %w", err)
+	}
+	if _, err := fmt.Fprintln(s.Stdout, "Installation complete!"); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
+	if _, err := fmt.Fprintln(s.Stdout); err != nil {
+		return fmt.Errorf("write newline: %w", err)
+	}
 	if !hasConfig {
-		fmt.Fprintln(os.Stdout, "Next steps:")
+		if _, err := fmt.Fprintln(s.Stdout, "Next steps:"); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 		for _, step := range s.nextSteps(cfg) {
-			fmt.Fprintln(os.Stdout, step)
+			if _, err := fmt.Fprintln(s.Stdout, step); err != nil {
+				return fmt.Errorf("write step: %w", err)
+			}
 		}
 	}
 
@@ -257,13 +336,17 @@ func (s *InstallService) applyEntryInstall(files map[string][]byte, destDir stri
 			return nil
 		}
 		if s.FS.FileExists(dstPath) {
-			fmt.Fprintf(os.Stdout, "Skipped (exists): %s\n", e.Dest)
+			if _, err := fmt.Fprintf(s.Stdout, "Skipped (exists): %s\n", e.Dest); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 			return nil
 		}
 		if err := s.FS.WriteFileAtomic(dstPath, data, 0o644); err != nil {
 			return fmt.Errorf("write file %s: %w", dstPath, err)
 		}
-		fmt.Fprintf(os.Stdout, "Created: %s\n", e.Dest)
+		if _, err := fmt.Fprintf(s.Stdout, "Created: %s\n", e.Dest); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 		return nil
 	default:
 		return fmt.Errorf("unknown manifest entry kind: %s", e.Kind)
@@ -310,7 +393,7 @@ func (s *InstallService) recordTemplateLockfile(destDir string, cfg ports.Unsare
 
 	lf, err := s.Config.ReadLockfile(destDir)
 	if err != nil {
-		return
+		lf = ports.Lockfile{}
 	}
 
 	var templateFiles map[string]ports.LockfileTemplateFile
@@ -351,5 +434,7 @@ func (s *InstallService) recordTemplateLockfile(destDir string, cfg ports.Unsare
 		Files:   templateFiles,
 	}
 
-	s.Config.WriteLockfile(destDir, lf)
+	if err := s.Config.WriteLockfile(destDir, lf); err != nil {
+		slog.Warn("failed to write lockfile", "error", err)
+	}
 }

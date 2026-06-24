@@ -10,10 +10,15 @@ import (
 	"strings"
 
 	"github.com/UNSAReport/UNSAReport/internal/dependencies"
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
+var _ ports.Compiler = (*Adapter)(nil)
+
+// Adapter implements ports.Compiler by invoking the typst CLI for querying variables and compiling reports.
 type Adapter struct{}
 
+// New returns a new Adapter for typst compilation.
 func New() *Adapter {
 	return &Adapter{}
 }
@@ -25,6 +30,7 @@ type queryItem struct {
 	} `json:"value"`
 }
 
+// QueryVars extracts exported variables from a Typst report and returns them as a string map.
 func (a *Adapter) QueryVars(ctx context.Context, reportPath string) (map[string]string, error) {
 	if err := dependencies.Check(dependencies.Typst); err != nil {
 		return nil, err
@@ -69,6 +75,7 @@ func (a *Adapter) QueryVars(ctx context.Context, reportPath string) (map[string]
 	return vars, nil
 }
 
+// Compile runs typst compile to produce reportPDF from reportPath, passing inputs as --input flags.
 func (a *Adapter) Compile(ctx context.Context, reportPath, reportPDF string, inputs map[string]string) error {
 	if err := dependencies.Check(dependencies.Typst); err != nil {
 		return err

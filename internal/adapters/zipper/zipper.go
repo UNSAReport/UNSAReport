@@ -5,19 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/UNSAReport/UNSAReport/internal/ports"
 )
 
+var _ ports.Archiver = (*Adapter)(nil)
+
+// ErrSourceMissing is returned when the source directory for an archive operation does not exist.
 var ErrSourceMissing = errors.New("source directory not found")
 
+// Adapter implements ports.Archiver by creating zip archives from directories or file lists.
 type Adapter struct{}
 
+// New returns a new Adapter for zip archive creation.
 func New() *Adapter {
 	return &Adapter{}
 }
 
+// ArchiveDir walks srcDir and creates a zip archive at zipPath containing all files in the directory tree.
 func (a *Adapter) ArchiveDir(zipPath, srcDir string) error {
 	st, err := os.Stat(srcDir)
 	if err != nil {
@@ -30,7 +39,7 @@ func (a *Adapter) ArchiveDir(zipPath, srcDir string) error {
 		return fmt.Errorf("%s is not a directory", srcDir)
 	}
 
-	var files []string
+	files := make([]string, 0)
 	err = filepath.WalkDir(srcDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -52,6 +61,7 @@ func (a *Adapter) ArchiveDir(zipPath, srcDir string) error {
 	return a.ArchiveFiles(zipPath, srcDir, files)
 }
 
+// ArchiveFiles creates a zip archive at zipPath containing the specified files relative to baseDir.
 func (a *Adapter) ArchiveFiles(zipPath, baseDir string, files []string) error {
 	if err := os.MkdirAll(filepath.Dir(zipPath), 0o755); err != nil {
 		return fmt.Errorf("mkdir for zip: %w", err)
@@ -61,10 +71,18 @@ func (a *Adapter) ArchiveFiles(zipPath, baseDir string, files []string) error {
 	if err != nil {
 		return fmt.Errorf("create zip file: %w", err)
 	}
-	defer out.Close()
+	defer func() {
+		if err := out.Close(); err != nil {
+			slog.Warn("failed to close zip file", "path", zipPath, "error", err)
+		}
+	}()
 
 	zw := zip.NewWriter(out)
-	defer zw.Close()
+	defer func() {
+		if err := zw.Close(); err != nil {
+			slog.Warn("failed to close zip writer", "path", zipPath, "error", err)
+		}
+	}()
 
 	for _, rel := range files {
 		path := filepath.Join(baseDir, rel)
@@ -90,10 +108,12 @@ func (a *Adapter) ArchiveFiles(zipPath, baseDir string, files []string) error {
 		if err != nil {
 			return fmt.Errorf("open %s: %w", path, err)
 		}
-		_, err = io.Copy(w, f)
-		f.Close()
-		if err != nil {
-			return fmt.Errorf("copy %s to zip: %w", path, err)
+		_, copyErr := io.Copy(w, f)
+		if closeErr := f.Close(); closeErr != nil {
+			slog.Warn("failed to close source file", "path", path, "error", closeErr)
+		}
+		if copyErr != nil {
+			return fmt.Errorf("copy %s to zip: %w", path, copyErr)
 		}
 	}
 

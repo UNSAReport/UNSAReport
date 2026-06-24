@@ -23,10 +23,14 @@ type registryTemplateVersion struct {
 	Path string `json:"path"`
 }
 
+var _ ports.TemplateRegistry = (*RemoteAdapter)(nil)
+
+// RemoteAdapter implements ports.TemplateRegistry by fetching registry.json from a remote GitHub repository.
 type RemoteAdapter struct {
 	fetcher ports.TemplateFetcher
 }
 
+// NewRemote creates a RemoteAdapter that uses fetcher to retrieve registry data from GitHub.
 func NewRemote(fetcher ports.TemplateFetcher) *RemoteAdapter {
 	return &RemoteAdapter{
 		fetcher: fetcher,
@@ -55,6 +59,7 @@ func (a *RemoteAdapter) convertTemplate(name string, entry registryTemplateEntry
 	}
 }
 
+// ListTemplates fetches the remote registry and returns all available templates.
 func (a *RemoteAdapter) ListTemplates() ([]ports.TemplateInfo, error) {
 	reg, err := a.fetchRegistry()
 	if err != nil {
@@ -69,6 +74,7 @@ func (a *RemoteAdapter) ListTemplates() ([]ports.TemplateInfo, error) {
 	return templates, nil
 }
 
+// GetTemplate fetches the remote registry and returns metadata for the named template.
 func (a *RemoteAdapter) GetTemplate(name string) (ports.TemplateInfo, error) {
 	reg, err := a.fetchRegistry()
 	if err != nil {
@@ -83,6 +89,7 @@ func (a *RemoteAdapter) GetTemplate(name string) (ports.TemplateInfo, error) {
 	return a.convertTemplate(name, entry), nil
 }
 
+// GetTemplateVersion fetches the remote registry and resolves rangeSpec against dist-tags and versions.
 func (a *RemoteAdapter) GetTemplateVersion(name string, rangeSpec string) (ports.TemplateInfo, error) {
 	reg, err := a.fetchRegistry()
 	if err != nil {

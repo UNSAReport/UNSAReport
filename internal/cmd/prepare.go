@@ -28,7 +28,7 @@ and uses it to generate properly named files in a 'submission' folder.`,
   # Force reconfiguration of file naming template
   unsarep prepare --configure`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			labDir := ""
+			var labDir string
 			if len(args) > 0 {
 				labDir = args[0]
 			}
@@ -41,7 +41,14 @@ and uses it to generate properly named files in a 'submission' folder.`,
 			archiver := zipper.New()
 			cfg := config.New()
 
-			svc := services.NewPrepareService(compiler, archiver, fs, cfg)
+			svc := services.NewPrepareService(
+				services.WithPrepareCompiler(compiler),
+				services.WithPrepareArchiver(archiver),
+				services.WithPrepareFS(fs),
+				services.WithPrepareConfig(cfg),
+				services.WithPrepareStdout(cmd.OutOrStdout()),
+				services.WithPrepareStderr(cmd.ErrOrStderr()),
+			)
 			return svc.Execute(cmd.Context(), opt, labDir)
 		},
 	}

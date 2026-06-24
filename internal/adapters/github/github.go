@@ -7,22 +7,40 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/UNSAReport/UNSAReport/internal/ports"
+	"github.com/samber/oops"
 )
 
+var _ ports.TemplateFetcher = (*Adapter)(nil)
+
+const (
+	httpTimeout       = 30 * time.Second
+	maxBodySize int64 = 50 << 20 // 50MB
+)
+
+var httpClient = &http.Client{Timeout: httpTimeout}
+
+// Adapter implements ports.TemplateFetcher by downloading templates from GitHub repositories.
 type Adapter struct{}
 
+// New returns a new Adapter for GitHub template fetching.
 func New() *Adapter {
 	return &Adapter{}
 }
 
+// Fetch downloads a template directory from a GitHub repository as a zip archive and returns its files keyed by relative path.
 func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (map[string][]byte, error) {
 	parts := strings.Split(repo, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, fmt.Errorf("invalid repo %q (expected owner/repo)", repo)
+	validRepo := len(parts) == 2 && parts[0] != "" && parts[1] != ""
+	if !validRepo {
+		return nil, oops.Errorf("invalid repo %q (expected owner/repo)", repo)
 	}
 	owner, name := parts[0], parts[1]
 
@@ -30,28 +48,32 @@ func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (ma
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, zipURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return nil, oops.Wrapf(err, "create request")
 	}
 	req.Header.Set("User-Agent", "unsarep")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("do request: %w", err)
+		return nil, oops.With("url", zipURL).Wrapf(err, "do request")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Warn("failed to close response body", "error", err)
+		}
+	}()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return nil, fmt.Errorf("failed to fetch templates: %s (%s)", resp.Status, strings.TrimSpace(string(b)))
+		return nil, oops.With("status", resp.Status).Errorf("failed to fetch templates: %s (%s)", resp.Status, strings.TrimSpace(string(b)))
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
 	if err != nil {
-		return nil, fmt.Errorf("read body: %w", err)
+		return nil, oops.Wrapf(err, "read body")
 	}
 
 	zr, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
-		return nil, fmt.Errorf("read zip: %w", err)
+		return nil, oops.Wrapf(err, "read zip")
 	}
 
 	prefix := name + "-" + ref + "/" + templatePath + "/"
@@ -71,12 +93,14 @@ func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (ma
 
 		rc, err := f.Open()
 		if err != nil {
-			return nil, fmt.Errorf("open file in zip: %w", err)
+			return nil, oops.With("file", f.Name).Wrapf(err, "open file in zip")
 		}
-		data, err := io.ReadAll(rc)
-		rc.Close()
+		data, err := io.ReadAll(io.LimitReader(rc, maxBodySize))
+		if closeErr := rc.Close(); closeErr != nil {
+			return nil, oops.With("file", f.Name).Wrapf(closeErr, "close file in zip")
+		}
 		if err != nil {
-			return nil, fmt.Errorf("read file in zip: %w", err)
+			return nil, oops.With("file", f.Name).Wrapf(err, "read file in zip")
 		}
 		out[rel] = data
 	}
@@ -84,18 +108,19 @@ func (a *Adapter) Fetch(ctx context.Context, repo, ref, templatePath string) (ma
 	return out, nil
 }
 
+// LoadLocal reads all files under dir and returns them as a map keyed by slash-separated relative paths.
 func (a *Adapter) LoadLocal(dir string) (map[string][]byte, error) {
 	out := make(map[string][]byte)
 	abs, err := filepath.Abs(dir)
 	if err != nil {
-		return nil, fmt.Errorf("abs dir: %w", err)
+		return nil, oops.Wrapf(err, "abs dir")
 	}
 	info, err := os.Stat(abs)
 	if err != nil {
-		return nil, fmt.Errorf("stat dir: %w", err)
+		return nil, oops.With("path", abs).Wrapf(err, "stat dir")
 	}
 	if !info.IsDir() {
-		return nil, fs.ErrInvalid
+		return nil, oops.With("path", abs).Errorf("not a directory")
 	}
 
 	err = filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
@@ -107,7 +132,7 @@ func (a *Adapter) LoadLocal(dir string) (map[string][]byte, error) {
 		}
 		b, err := os.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("read file: %w", err)
+			return oops.With("path", path).Wrapf(err, "read file")
 		}
 		rel, err := filepath.Rel(abs, path)
 		if err != nil {
@@ -129,10 +154,12 @@ func (a *Adapter) LoadLocal(dir string) (map[string][]byte, error) {
 	return clean, nil
 }
 
+// FetchRaw downloads a single raw file from a GitHub repository at the given ref.
 func (a *Adapter) FetchRaw(ctx context.Context, repo, ref, path string) ([]byte, error) {
 	parts := strings.Split(repo, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, fmt.Errorf("invalid repo %q (expected owner/repo)", repo)
+	validRepo := len(parts) == 2 && parts[0] != "" && parts[1] != ""
+	if !validRepo {
+		return nil, oops.Errorf("invalid repo %q (expected owner/repo)", repo)
 	}
 	owner, name := parts[0], parts[1]
 
@@ -140,23 +167,27 @@ func (a *Adapter) FetchRaw(ctx context.Context, repo, ref, path string) ([]byte,
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return nil, oops.Wrapf(err, "create request")
 	}
 	req.Header.Set("User-Agent", "unsarep")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("do request: %w", err)
+		return nil, oops.With("url", rawURL).Wrapf(err, "do request")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Warn("failed to close response body", "error", err)
+		}
+	}()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return nil, fmt.Errorf("failed to fetch %s: %s (%s)", path, resp.Status, strings.TrimSpace(string(b)))
+		return nil, oops.With("status", resp.Status).Errorf("failed to fetch %s: %s (%s)", path, resp.Status, strings.TrimSpace(string(b)))
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
 	if err != nil {
-		return nil, fmt.Errorf("read body: %w", err)
+		return nil, oops.Wrapf(err, "read body")
 	}
 
 	return body, nil

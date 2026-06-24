@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/UNSAReport/UNSAReport/internal/adapters/config"
@@ -44,7 +43,14 @@ func newComponentListCmd() *cobra.Command {
 			cfg := config.New()
 			compReg := registry.NewComponentRegistry(fetcher)
 
-			svc := services.NewComponentService(fetcher, fs, cfg, compReg)
+			svc := services.NewComponentService(
+				services.WithComponentFetcher(fetcher),
+				services.WithComponentFS(fs),
+				services.WithComponentConfig(cfg),
+				services.WithComponentRegistry(compReg),
+				services.WithComponentStdout(cmd.OutOrStdout()),
+				services.WithComponentStderr(cmd.ErrOrStderr()),
+			)
 			return svc.List(cmd.Context())
 		},
 	}
@@ -75,14 +81,23 @@ func newComponentAddCmd() *cobra.Command {
 			cfg := config.New()
 			compReg := registry.NewComponentRegistry(fetcher)
 
-			svc := services.NewComponentService(fetcher, fs, cfg, compReg)
+			svc := services.NewComponentService(
+				services.WithComponentFetcher(fetcher),
+				services.WithComponentFS(fs),
+				services.WithComponentConfig(cfg),
+				services.WithComponentRegistry(compReg),
+				services.WithComponentStdout(cmd.OutOrStdout()),
+				services.WithComponentStderr(cmd.ErrOrStderr()),
+			)
 			if err := svc.Add(cmd.Context(), name, rangeSpec, force); err != nil {
 				return err
 			}
 
 			checkTemplateCompatibility(cmd.Context(), fetcher, cfg, name)
 
-			fmt.Fprintf(os.Stdout, "Added: %s\n", name)
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Added: %s\n", name); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 			return nil
 		},
 	}
@@ -104,12 +119,21 @@ func newComponentRemoveCmd() *cobra.Command {
 			cfg := config.New()
 			compReg := registry.NewComponentRegistry(fetcher)
 
-			svc := services.NewComponentService(fetcher, fs, cfg, compReg)
+			svc := services.NewComponentService(
+				services.WithComponentFetcher(fetcher),
+				services.WithComponentFS(fs),
+				services.WithComponentConfig(cfg),
+				services.WithComponentRegistry(compReg),
+				services.WithComponentStdout(cmd.OutOrStdout()),
+				services.WithComponentStderr(cmd.ErrOrStderr()),
+			)
 			if err := svc.Remove(cmd.Context(), args[0]); err != nil {
 				return err
 			}
 
-			fmt.Fprintf(os.Stdout, "Removed: %s\n", args[0])
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Removed: %s\n", args[0]); err != nil {
+				return fmt.Errorf("write message: %w", err)
+			}
 			return nil
 		},
 	}
@@ -128,7 +152,7 @@ func newComponentUpdateCmd() *cobra.Command {
   unsarep component update code-block`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := ""
+			var name string
 			if len(args) == 1 {
 				name = args[0]
 			}
@@ -138,7 +162,14 @@ func newComponentUpdateCmd() *cobra.Command {
 			cfg := config.New()
 			compReg := registry.NewComponentRegistry(fetcher)
 
-			svc := services.NewComponentService(fetcher, fs, cfg, compReg)
+			svc := services.NewComponentService(
+				services.WithComponentFetcher(fetcher),
+				services.WithComponentFS(fs),
+				services.WithComponentConfig(cfg),
+				services.WithComponentRegistry(compReg),
+				services.WithComponentStdout(cmd.OutOrStdout()),
+				services.WithComponentStderr(cmd.ErrOrStderr()),
+			)
 			return svc.Update(cmd.Context(), name)
 		},
 	}
@@ -147,10 +178,7 @@ func newComponentUpdateCmd() *cobra.Command {
 }
 
 func parseComponentArg(arg string) (name, rangeSpec string) {
-	if i := strings.Index(arg, "@"); i != -1 {
-		return arg[:i], arg[i+1:]
-	}
-	return arg, "latest"
+	return parseArg(arg)
 }
 
 func checkTemplateCompatibility(ctx context.Context, fetcher ports.TemplateFetcher, cfgStore ports.ConfigStore, componentName string) {
@@ -160,17 +188,23 @@ func checkTemplateCompatibility(ctx context.Context, fetcher ports.TemplateFetch
 	}
 
 	_, projectCfg, ok, err := cfgStore.FindProjectRoot(cwd)
-	if err != nil || !ok || projectCfg.Template == "" {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not check template compatibility: %v\n", err)
+		return
+	}
+	if !ok || projectCfg.Template == "" {
 		return
 	}
 
 	tmpl, err := registry.NewRemote(fetcher).GetTemplateVersion(projectCfg.Template, projectCfg.TemplateVersion)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not fetch template for compatibility check: %v\n", err)
 		return
 	}
 
 	manifestData, err := fetcher.FetchRaw(ctx, ports.DefaultTemplateRepo, ports.DefaultRef, tmpl.Path+"/manifest.json")
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not fetch manifest for compatibility check: %v\n", err)
 		return
 	}
 
@@ -178,40 +212,43 @@ func checkTemplateCompatibility(ctx context.Context, fetcher ports.TemplateFetch
 		Components map[string]string `json:"components"`
 	}
 	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not parse manifest for compatibility check: %v\n", err)
 		return
 	}
 
 	templateRange, exists := manifest.Components[componentName]
 	if !exists {
-		fmt.Fprintf(os.Stdout, "Warning: Component %s is not required by the current template\n", componentName)
+		fmt.Fprintf(os.Stderr, "Warning: Component %s is not required by the current template\n", componentName)
 		return
 	}
 
 	compReg := registry.NewComponentRegistry(fetcher)
 	resolved, _, _, err := compReg.ResolveVersion(componentName, templateRange)
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "Warning: Could not verify compatibility with template requirement %s@%s\n", componentName, templateRange)
+		fmt.Fprintf(os.Stderr, "Warning: Could not verify compatibility with template requirement %s@%s\n", componentName, templateRange)
 		return
 	}
 
 	componentEntry, exists := projectCfg.Components[componentName]
 	if !exists {
-		fmt.Fprintf(os.Stdout, "Warning: Component %s is required by the template but not installed\n", componentName)
+		fmt.Fprintf(os.Stderr, "Warning: Component %s is required by the template but not installed\n", componentName)
 		return
 	}
 
 	componentVersion, err := semver.NewVersion(componentEntry.Version)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not parse installed component version: %v\n", err)
 		return
 	}
 
 	constraint, err := semver.NewConstraint(templateRange)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not parse template version constraint: %v\n", err)
 		return
 	}
 
 	if ok, _ := constraint.Validate(componentVersion); !ok {
-		fmt.Fprintf(os.Stdout, "Warning: Installed version %s may be incompatible with template requirement %s@%s (resolved: %s)\n",
+		fmt.Fprintf(os.Stderr, "Warning: Installed version %s may be incompatible with template requirement %s@%s (resolved: %s)\n",
 			componentVersion, componentName, templateRange, resolved)
 	}
 }

@@ -8,13 +8,17 @@ import (
 	"strings"
 )
 
+// EntryKind represents whether a manifest entry is a file or directory.
 type EntryKind string
 
 const (
+	// KindFile denotes a file entry in a manifest.
 	KindFile EntryKind = "file"
-	KindDir  EntryKind = "dir"
+	// KindDir denotes a directory entry in a manifest.
+	KindDir EntryKind = "dir"
 )
 
+// Entry describes a single file or directory to be installed from a template.
 type Entry struct {
 	Kind      EntryKind `json:"kind"`
 	Src       string    `json:"src,omitempty"`
@@ -22,29 +26,34 @@ type Entry struct {
 	Updatable bool      `json:"updatable,omitempty"`
 }
 
+// MultiEntrySet groups entries into root files and per-lab files for multi-mode manifests.
 type MultiEntrySet struct {
 	Root     []Entry `json:"root"`
 	LabFiles []Entry `json:"labFiles"`
 }
 
+// Manifest is the top-level parsed representation of a template manifest.
 type Manifest struct {
 	Mode       string            `json:"mode"`
 	Components map[string]string `json:"components,omitempty"`
-	Entries    interface{}       `json:"entries"`
+	Entries    any               `json:"entries"`
 }
 
+// SingleManifest represents a manifest in "single" mode with a flat list of entries.
 type SingleManifest struct {
 	Mode       string            `json:"mode"`
 	Components map[string]string `json:"components,omitempty"`
 	Entries    []Entry           `json:"entries"`
 }
 
+// MultiManifest represents a manifest in "multi" mode with root and lab-file entry sets.
 type MultiManifest struct {
 	Mode       string            `json:"mode"`
 	Components map[string]string `json:"components,omitempty"`
 	Entries    MultiEntrySet     `json:"entries"`
 }
 
+// Validate checks that the manifest has mode "single" and all entries are well-formed.
 func (m *SingleManifest) Validate() error {
 	if m.Mode != "single" {
 		return fmt.Errorf("manifest mode must be %q, got %q", "single", m.Mode)
@@ -60,6 +69,7 @@ func (m *SingleManifest) Validate() error {
 	return nil
 }
 
+// Validate checks that the manifest has mode "multi" and both root and lab entries are well-formed.
 func (m *MultiManifest) Validate() error {
 	if m.Mode != "multi" {
 		return fmt.Errorf("manifest mode must be %q, got %q", "multi", m.Mode)
@@ -99,6 +109,7 @@ func validateEntry(e Entry) error {
 	return nil
 }
 
+// LoadManifest parses raw JSON into a Manifest without validating its entries.
 func LoadManifest(data []byte) (*Manifest, error) {
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -110,6 +121,7 @@ func LoadManifest(data []byte) (*Manifest, error) {
 	return &m, nil
 }
 
+// LoadAndValidateManifest parses raw JSON and validates the manifest entries.
 func LoadAndValidateManifest(data []byte) (*Manifest, error) {
 	switch {
 	case strings.Contains(string(data), `"mode": "single"`):
@@ -137,6 +149,7 @@ func LoadAndValidateManifest(data []byte) (*Manifest, error) {
 	}
 }
 
+// GetComponents returns the component dependency map, or an empty map if none are declared.
 func (m *Manifest) GetComponents() map[string]string {
 	if m.Components == nil {
 		return map[string]string{}
@@ -144,10 +157,7 @@ func (m *Manifest) GetComponents() map[string]string {
 	return m.Components
 }
 
-func (m *Manifest) GetEntries() interface{} {
-	return m.Entries
-}
-
+// GetSingleEntries extracts the entries from a single-mode manifest.
 func (m *Manifest) GetSingleEntries() ([]Entry, error) {
 	if m.Mode != "single" {
 		return nil, fmt.Errorf("manifest is not single-mode")
@@ -163,6 +173,7 @@ func (m *Manifest) GetSingleEntries() ([]Entry, error) {
 	return entries, nil
 }
 
+// GetMultiEntries extracts the entries from a multi-mode manifest.
 func (m *Manifest) GetMultiEntries() (*MultiEntrySet, error) {
 	if m.Mode != "multi" {
 		return nil, fmt.Errorf("manifest is not multi-mode")
@@ -178,6 +189,7 @@ func (m *Manifest) GetMultiEntries() (*MultiEntrySet, error) {
 	return &entries, nil
 }
 
+// ExpandDirEntries replaces directory entries with the individual files they contain, based on the remote file map.
 func ExpandDirEntries(remote map[string][]byte, entries []Entry) []Entry {
 	out := make([]Entry, 0, len(entries))
 	for _, e := range entries {

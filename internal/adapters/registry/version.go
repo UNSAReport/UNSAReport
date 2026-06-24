@@ -1,8 +1,9 @@
 package registry
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/Masterminds/semver/v3"
 )
@@ -40,8 +41,8 @@ func resolveVersionFromMap(
 		return nil, fmt.Errorf("no version matching %q", rangeSpec)
 	}
 
-	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].LessThan(candidates[j])
+	slices.SortFunc(candidates, func(a, b *semver.Version) int {
+		return cmp.Compare(a.String(), b.String())
 	})
 
 	return candidates[len(candidates)-1], nil
@@ -60,8 +61,8 @@ func resolveLatestFromMap(versions map[string]*semver.Version) (*semver.Version,
 		return nil, fmt.Errorf("no stable versions found")
 	}
 
-	sort.Slice(all, func(i, j int) bool {
-		return all[i].LessThan(all[j])
+	slices.SortFunc(all, func(a, b *semver.Version) int {
+		return cmp.Compare(a.String(), b.String())
 	})
 
 	return all[len(all)-1], nil
